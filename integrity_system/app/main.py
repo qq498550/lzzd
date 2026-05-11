@@ -130,13 +130,13 @@ app.include_router(router, prefix="/api")
 @app.get("/", response_class=HTMLResponse, tags=["前端页面"])
 async def home(request: Request):
     """首页 - 查询界面"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", context={"request": request})
 
 
 @app.get("/admin", response_class=HTMLResponse, tags=["前端页面"])
 async def admin_panel(request: Request):
     """管理后台"""
-    return templates.TemplateResponse("admin.html", {"request": request})
+    return templates.TemplateResponse("admin.html", context={"request": request})
 
 
 if __name__ == "__main__":
