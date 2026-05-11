@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - 廉政意见智答系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #f5f6fa; min-height: 100vh; }
+        .sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; overflow-y: auto; }
+        .sidebar h2 { font-size: 1.5em; margin-bottom: 30px; text-align: center; }
+        .nav-item { padding: 12px 15px; margin-bottom: 8px; border-radius: 8px; cursor: pointer; transition: background 0.3s; }
+        .nav-item:hover, .nav-item.active { background: rgba(255,255,255,0.2); }
+        .main-content { margin-left: 250px; padding: 30px; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .page-header h1 { color: #333; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 25px; margin-bottom: 20px; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        .data-table th { background: #f8f9fa; font-weight: bold; color: #333; }
+        .data-table tr:hover { background: #f8f9fa; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; border-radius: 12px; padding: 30px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { color: #333; }
+        .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+        .form-group textarea { min-height: 100px; resize: vertical; }
+        .status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-inactive { background: #f8d7da; color: #721c24; }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 2.5em; font-weight: bold; color: #667eea; }
+        .stat-label { color: #666; margin-top: 5px; }
+        .action-btns { display: flex; gap: 8px; }
+        .home-link { position: fixed; top: 20px; right: 20px; z-index: 100; }
+        .home-link a { background: white; color: #667eea; padding: 10px 20px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div class="home-link">
+        <a href="/">← 返回首页</a>
+    </div>
+
+    <!-- 侧边栏 -->
+    <div class="sidebar">
+        <h2>🛡️ 管理后台</h2>
+        <div class="nav-item active" onclick="showPage('dashboard')">📊 数据概览</div>
+        <div class="nav-item" onclick="showPage('discipline')">📋 违纪记录管理</div>
+        <div class="nav-item" onclick="showPage('violation')">⚠️ 违规记录管理</div>
+        <div class="nav-item" onclick="showPage('petition')">✉️ 信访举报管理</div>
+        <div class="nav-item" onclick="showPage('template')">📝 答复模板管理</div>
+        <div class="nav-item" onclick="showPage('logs')">📜 查询日志</div>
+    </div>
+
+    <!-- 主内容区 -->
+    <div class="main-content">
+        
+        <!-- 数据概览 -->
+        <div id="dashboard" class="page-section active">
+            <div class="page-header">
+                <h1>数据概览</h1>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="statDiscipline">0</div>
+                    <div class="stat-label">违纪记录</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statViolation">0</div>
+                    <div class="stat-label">违规记录</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statPetition">0</div>
+                    <div class="stat-label">信访举报</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statTemplate">0</div>
+                    <div class="stat-label">答复模板</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="statQueries">0</div>
+                    <div class="stat-label">今日查询</div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>最近查询记录</h3>
+                <table class="data-table" id="recentQueriesTable">
+                    <thead><tr><th>时间</th><th>姓名</th><th>事项类型</th><th>匹配模板</th><th>结论</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 违纪记录管理 -->
+        <div id="discipline" class="page-section">
+            <div class="page-header">
+                <h1>违纪记录管理</h1>
+                <button class="btn btn-primary" onclick="openModal('disciplineModal')">+ 新增记录</button>
+            </div>
+            <div class="card">
+                <table class="data-table" id="disciplineTable">
+                    <thead><tr><th>ID</th><th>姓名</th><th>部门</th><th>问责情况</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 违规记录管理 -->
+        <div id="violation" class="page-section">
+            <div class="page-header">
+                <h1>违规记录管理</h1>
+                <button class="btn btn-primary" onclick="openModal('violationModal')">+ 新增记录</button>
+            </div>
+            <div class="card">
+                <table class="data-table" id="violationTable">
+                    <thead><tr><th>ID</th><th>姓名</th><th>部门</th><th>问责类型</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 信访举报管理 -->
+        <div id="petition" class="page-section">
+            <div class="page-header">
+                <h1>信访举报管理</h1>
+                <button class="btn btn-primary" onclick="openModal('petitionModal')">+ 新增举报</button>
+            </div>
+            <div class="card">
+                <table class="data-table" id="petitionTable">
+                    <thead><tr><th>ID</th><th>姓名</th><th>举报日期</th><th>核查结果</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 答复模板管理 -->
+        <div id="template" class="page-section">
+            <div class="page-header">
+                <h1>答复模板管理</h1>
+                <button class="btn btn-primary" onclick="openModal('templateModal')">+ 新增模板</button>
+            </div>
+            <div class="card">
+                <table class="data-table" id="templateTable">
+                    <thead><tr><th>编号</th><th>名称</th><th>适用场景</th><th>优先级</th><th>状态</th><th>操作</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 查询日志 -->
+        <div id="logs" class="page-section">
+            <div class="page-header">
+                <h1>查询日志</h1>
+            </div>
+            <div class="card">
+                <table class="data-table" id="logsTable">
+                    <thead><tr><th>时间</th><th>姓名</th><th>事项类型</th><th>模板</th><th>结论</th><th>操作员</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 违纪记录模态框 -->
+    <div id="disciplineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>违纪记录</h3>
+                <button class="close-btn" onclick="closeModal('disciplineModal')">&times;</button>
+            </div>
+            <form id="disciplineForm">
+                <input type="hidden" id="disciplineId">
+                <div class="form-group"><label>姓名 *</label><input type="text" id="disciplineName" required></div>
+                <div class="form-group"><label>部门</label><input type="text" id="disciplineDept"></div>
+                <div class="form-group"><label>职务</label><input type="text" id="disciplinePosition"></div>
+                <div class="form-group"><label>处理机构</label><input type="text" id="disciplineOrg"></div>
+                <div class="form-group"><label>问责情况 *</label><input type="text" id="disciplineType" required></div>
+                <div class="form-group"><label>问责时间 *</label><input type="date" id="disciplineDate" required></div>
+                <div class="form-group"><label>有无影响期</label><select id="disciplineHasPeriod"><option value="true">有</option><option value="false">无</option></select></div>
+                <div class="form-group"><label>影响期截止日期</label><input type="date" id="disciplineEndDate"></div>
+                <div class="form-group"><label>事由 *</label><textarea id="disciplineReason" required></textarea></div>
+                <div class="form-group"><label>状态</label><select id="disciplineStatus"><option value="completed">已办结</option><option value="processing">办理中</option></select></div>
+                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 违规记录模态框 -->
+    <div id="violationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>违规记录</h3>
+                <button class="close-btn" onclick="closeModal('violationModal')">&times;</button>
+            </div>
+            <form id="violationForm">
+                <input type="hidden" id="violationId">
+                <div class="form-group"><label>姓名 *</label><input type="text" id="violationName" required></div>
+                <div class="form-group"><label>部门</label><input type="text" id="violationDept"></div>
+                <div class="form-group"><label>职务</label><input type="text" id="violationPosition"></div>
+                <div class="form-group"><label>处理机构</label><input type="text" id="violationOrg"></div>
+                <div class="form-group"><label>问责类型 *</label><input type="text" id="violationType" required></div>
+                <div class="form-group"><label>问责时间 *</label><input type="date" id="violationDate" required></div>
+                <div class="form-group"><label>有无影响期</label><select id="violationHasPeriod"><option value="true">有</option><option value="false">无</option></select></div>
+                <div class="form-group"><label>影响期截止日期</label><input type="date" id="violationEndDate"></div>
+                <div class="form-group"><label>事由 *</label><textarea id="violationReason" required></textarea></div>
+                <div class="form-group"><label>状态</label><select id="violationStatus"><option value="completed">已办结</option><option value="processing">办理中</option></select></div>
+                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 信访举报模态框 -->
+    <div id="petitionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>信访举报</h3>
+                <button class="close-btn" onclick="closeModal('petitionModal')">&times;</button>
+            </div>
+            <form id="petitionForm">
+                <input type="hidden" id="petitionId">
+                <div class="form-group"><label>姓名 *</label><input type="text" id="petitionName" required></div>
+                <div class="form-group"><label>举报日期 *</label><input type="date" id="petitionDate" required></div>
+                <div class="form-group"><label>举报内容 *</label><textarea id="petitionContent" required></textarea></div>
+                <div class="form-group"><label>核查结果</label><input type="text" id="petitionResult"></div>
+                <div class="form-group"><label>组织采信</label><select id="petitionAdoption"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select></div>
+                <div class="form-group"><label>状态</label><select id="petitionStatus"><option value="processing">办理中</option><option value="completed">已办结</option><option value="closed">已关闭</option></select></div>
+                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 模板模态框 -->
+    <div id="templateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>答复模板</h3>
+                <button class="close-btn" onclick="closeModal('templateModal')">&times;</button>
+            </div>
+            <form id="templateForm">
+                <input type="hidden" id="templateId">
+                <div class="form-group"><label>模板编号 *</label><input type="text" id="templateCode" required placeholder="如：T1"></div>
+                <div class="form-group"><label>模板名称 *</label><input type="text" id="templateName" required></div>
+                <div class="form-group"><label>适用场景 *</label><input type="text" id="templateScenario" required></div>
+                <div class="form-group"><label>事项类型</label><input type="text" id="templateMatter" value="干部选拔任用"></div>
+                <div class="form-group"><label>模板内容 *</label><textarea id="templateContent" required placeholder="使用{person_name}、{matter_type}、{date}、{type}、{reason}等变量"></textarea></div>
+                <div class="form-group"><label>优先级</label><input type="number" id="templatePriority" value="0"></div>
+                <div class="form-group"><label>状态</label><select id="templateActive"><option value="true">启用</option><option value="false">禁用</option></select></div>
+                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        
+        // 页面切换
+        function showPage(pageId) {
+            document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            event.target.classList.add('active');
+            loadData(pageId);
+        }
+
+        // 模态框操作
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+            // 清空表单
+            const form = document.querySelector(`#${modalId} form`);
+            if (form) form.reset();
+        }
+
+        // 加载数据
+        async function loadData(page) {
+            if (page === 'dashboard') loadDashboard();
+            else if (page === 'discipline') loadDiscipline();
+            else if (page === 'violation') loadViolation();
+            else if (page === 'petition') loadPetition();
+            else if (page === 'template') loadTemplates();
+            else if (page === 'logs') loadLogs();
+        }
+
+        // 加载仪表板
+        async function loadDashboard() {
+            const [discipline, violation, petition, template, logs] = await Promise.all([
+                fetch(`${API_BASE}/discipline/?limit=1000`).then(r => r.json()),
+                fetch(`${API_BASE}/violation/?limit=1000`).then(r => r.json()),
+                fetch(`${API_BASE}/petition/?limit=1000`).then(r => r.json()),
+                fetch(`${API_BASE}/template/?limit=1000`).then(r => r.json()),
+                fetch(`${API_BASE}/query/any/history?limit=10`).catch(() => [])
+            ]);
+            
+            document.getElementById('statDiscipline').textContent = discipline.length;
+            document.getElementById('statViolation').textContent = violation.length;
+            document.getElementById('statPetition').textContent = petition.length;
+            document.getElementById('statTemplate').textContent = template.length;
+            document.getElementById('statQueries').textContent = logs.length || 0;
+            
+            const tbody = document.querySelector('#recentQueriesTable tbody');
+            tbody.innerHTML = logs.map(l => `
+                <tr>
+                    <td>${new Date(l.query_time).toLocaleString()}</td>
+                    <td>${l.query_name}</td>
+                    <td>${l.matter_type}</td>
+                    <td>${l.result_template}</td>
+                    <td>${l.conclusion}</td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载违纪记录
+        async function loadDiscipline() {
+            const data = await fetch(`${API_BASE}/discipline/`).then(r => r.json());
+            const tbody = document.querySelector('#disciplineTable tbody');
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.department || '-'}</td>
+                    <td>${item.accountability_type}</td>
+                    <td>${item.accountability_date}</td>
+                    <td>${item.influence_end_date || '无'}</td>
+                    <td><span class="status-badge ${item.status === 'completed' ? 'status-active' : ''}">${item.status}</span></td>
+                    <td class="action-btns">
+                        <button class="btn btn-warning" onclick="editDiscipline(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteRecord('discipline', ${item.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载违规记录
+        async function loadViolation() {
+            const data = await fetch(`${API_BASE}/violation/`).then(r => r.json());
+            const tbody = document.querySelector('#violationTable tbody');
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.department || '-'}</td>
+                    <td>${item.violation_type}</td>
+                    <td>${item.violation_date}</td>
+                    <td>${item.influence_end_date || '无'}</td>
+                    <td><span class="status-badge ${item.status === 'completed' ? 'status-active' : ''}">${item.status}</span></td>
+                    <td class="action-btns">
+                        <button class="btn btn-warning" onclick="editViolation(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteRecord('violation', ${item.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载信访举报
+        async function loadPetition() {
+            const data = await fetch(`${API_BASE}/petition/`).then(r => r.json());
+            const tbody = document.querySelector('#petitionTable tbody');
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.id}</td>
+                    <td>${item.name}</td>
+                    <td>${item.report_date}</td>
+                    <td>${item.verification_result || '-'}</td>
+                    <td><span class="status-badge ${item.status === 'completed' ? 'status-active' : ''}">${item.status}</span></td>
+                    <td class="action-btns">
+                        <button class="btn btn-warning" onclick="editPetition(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteRecord('petition', ${item.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载模板
+        async function loadTemplates() {
+            const data = await fetch(`${API_BASE}/template/`).then(r => r.json());
+            const tbody = document.querySelector('#templateTable tbody');
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td>${item.template_code}</td>
+                    <td>${item.template_name}</td>
+                    <td>${item.scenario_type}</td>
+                    <td>${item.priority}</td>
+                    <td><span class="status-badge ${item.is_active ? 'status-active' : 'status-inactive'}">${item.is_active ? '启用' : '禁用'}</span></td>
+                    <td class="action-btns">
+                        <button class="btn btn-warning" onclick="editTemplate(${item.id})">编辑</button>
+                        <button class="btn btn-danger" onclick="deleteRecord('template', ${item.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 加载日志
+        async function loadLogs() {
+            try {
+                const data = await fetch(`${API_BASE}/query/any/history?limit=100`).then(r => r.json());
+                const tbody = document.querySelector('#logsTable tbody');
+                tbody.innerHTML = data.map(item => `
+                    <tr>
+                        <td>${new Date(item.query_time).toLocaleString()}</td>
+                        <td>${item.query_name}</td>
+                        <td>${item.matter_type}</td>
+                        <td>${item.result_template}</td>
+                        <td>${item.conclusion}</td>
+                        <td>${item.operator || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch(e) {
+                document.querySelector('#logsTable tbody').innerHTML = '<tr><td colspan="6">暂无日志</td></tr>';
+            }
+        }
+
+        // 删除记录
+        async function deleteRecord(type, id) {
+            if (!confirm('确定要删除这条记录吗？')) return;
+            await fetch(`${API_BASE}/${type}/${id}`, { method: 'DELETE' });
+            loadData(type === 'discipline' ? 'discipline' : type === 'violation' ? 'violation' : type === 'petition' ? 'petition' : 'template');
+        }
+
+        // 表单提交处理
+        document.getElementById('disciplineForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('disciplineName').value,
+                department: document.getElementById('disciplineDept').value,
+                position: document.getElementById('disciplinePosition').value,
+                processing_org: document.getElementById('disciplineOrg').value,
+                accountability_type: document.getElementById('disciplineType').value,
+                accountability_date: document.getElementById('disciplineDate').value,
+                has_influence_period: document.getElementById('disciplineHasPeriod').value === 'true',
+                influence_end_date: document.getElementById('disciplineEndDate').value || null,
+                reason: document.getElementById('disciplineReason').value,
+                status: document.getElementById('disciplineStatus').value
+            };
+            await fetch(`${API_BASE}/discipline/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            closeModal('disciplineModal');
+            loadDiscipline();
+        });
+
+        document.getElementById('violationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('violationName').value,
+                department: document.getElementById('violationDept').value,
+                position: document.getElementById('violationPosition').value,
+                processing_org: document.getElementById('violationOrg').value,
+                violation_type: document.getElementById('violationType').value,
+                violation_date: document.getElementById('violationDate').value,
+                has_influence_period: document.getElementById('violationHasPeriod').value === 'true',
+                influence_end_date: document.getElementById('violationEndDate').value || null,
+                reason: document.getElementById('violationReason').value,
+                status: document.getElementById('violationStatus').value
+            };
+            await fetch(`${API_BASE}/violation/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            closeModal('violationModal');
+            loadViolation();
+        });
+
+        document.getElementById('petitionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('petitionName').value,
+                report_date: document.getElementById('petitionDate').value,
+                report_content: document.getElementById('petitionContent').value,
+                verification_result: document.getElementById('petitionResult').value,
+                organization_adoption: document.getElementById('petitionAdoption').value === 'true' ? true : (document.getElementById('petitionAdoption').value === 'false' ? false : null),
+                status: document.getElementById('petitionStatus').value
+            };
+            await fetch(`${API_BASE}/petition/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            closeModal('petitionModal');
+            loadPetition();
+        });
+
+        document.getElementById('templateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                template_code: document.getElementById('templateCode').value,
+                template_name: document.getElementById('templateName').value,
+                scenario_type: document.getElementById('templateScenario').value,
+                matter_type: document.getElementById('templateMatter').value,
+                template_content: document.getElementById('templateContent').value,
+                priority: parseInt(document.getElementById('templatePriority').value),
+                is_active: document.getElementById('templateActive').value === 'true'
+            };
+            await fetch(`${API_BASE}/template/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            closeModal('templateModal');
+            loadTemplates();
+        });
+
+        // 初始化加载
+        loadDashboard();
+    </script>
+</body>
+</html>
