@@ -3,7 +3,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
-DATABASE_URL = "sqlite:///./data/integrity.db"
+import os
+# 使用绝对路径 - 项目根目录是 integrity_system
+# __file__ = integrity_system/app/models/database.py
+# dirname 3次: models -> app -> integrity_system -> lzzd
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+db_path = os.path.join(BASE_DIR, 'data', 'integrity.db')
+# Windows 上 SQLite URL 需要正斜杠
+DATABASE_URL = f"sqlite:///{db_path.replace(chr(92), '/')}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
