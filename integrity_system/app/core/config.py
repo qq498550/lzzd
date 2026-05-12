@@ -24,8 +24,8 @@ class Settings:
     # 路径配置
     BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     DATA_DIR: str = os.path.join(BASE_DIR, "data")
-    STATIC_DIR: str = os.path.join(BASE_DIR, "app", "static")
-    TEMPLATES_DIR: str = os.path.join(BASE_DIR, "app", "templates")
+    STATIC_DIR: str = os.path.join(BASE_DIR, "static")
+    TEMPLATES_DIR: str = os.path.join(BASE_DIR, "templates")
     
     # 日志配置
     LOG_LEVEL: str = "INFO"
