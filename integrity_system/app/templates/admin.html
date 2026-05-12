@@ -45,8 +45,9 @@
         .stat-number { font-size: 2.5em; font-weight: bold; color: #667eea; }
         .stat-label { color: #666; margin-top: 5px; }
         .action-btns { display: flex; gap: 8px; }
-        .home-link { position: fixed; top: 20px; right: 20px; z-index: 100; }
+        .home-link { position: fixed; top: 20px; right: 20px; z-index: 1000; }
         .home-link a { background: white; color: #667eea; padding: 10px 20px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .page-header .btn-primary { z-index: 1001; position: relative; }
     </style>
 </head>
 <body>
@@ -281,9 +282,72 @@
         }
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
-            // 清空表单
+            // 清空表单和隐藏ID
             const form = document.querySelector(`#${modalId} form`);
             if (form) form.reset();
+            const hiddenId = form?.querySelector('input[type="hidden"]');
+            if (hiddenId) hiddenId.value = '';
+        }
+
+        // 编辑违纪记录
+        async function editDiscipline(id) {
+            const data = await fetch(`${API_BASE}/discipline/${id}`).then(r => r.json());
+            document.getElementById('disciplineId').value = data.id;
+            document.getElementById('disciplineName').value = data.name;
+            document.getElementById('disciplineDept').value = data.department || '';
+            document.getElementById('disciplinePosition').value = data.position || '';
+            document.getElementById('disciplineOrg').value = data.processing_org || '';
+            document.getElementById('disciplineType').value = data.accountability_type;
+            document.getElementById('disciplineDate').value = data.accountability_date;
+            document.getElementById('disciplineHasPeriod').value = data.has_influence_period ? 'true' : 'false';
+            document.getElementById('disciplineEndDate').value = data.influence_end_date || '';
+            document.getElementById('disciplineReason').value = data.reason || '';
+            document.getElementById('disciplineStatus').value = data.status || 'completed';
+            openModal('disciplineModal');
+        }
+
+        // 编辑违规记录
+        async function editViolation(id) {
+            const data = await fetch(`${API_BASE}/violation/${id}`).then(r => r.json());
+            document.getElementById('violationId').value = data.id;
+            document.getElementById('violationName').value = data.name;
+            document.getElementById('violationDept').value = data.department || '';
+            document.getElementById('violationPosition').value = data.position || '';
+            document.getElementById('violationOrg').value = data.processing_org || '';
+            document.getElementById('violationType').value = data.violation_type;
+            document.getElementById('violationDate').value = data.violation_date;
+            document.getElementById('violationHasPeriod').value = data.has_influence_period ? 'true' : 'false';
+            document.getElementById('violationEndDate').value = data.influence_end_date || '';
+            document.getElementById('violationReason').value = data.reason || '';
+            document.getElementById('violationStatus').value = data.status || 'completed';
+            openModal('violationModal');
+        }
+
+        // 编辑信访举报
+        async function editPetition(id) {
+            const data = await fetch(`${API_BASE}/petition/${id}`).then(r => r.json());
+            document.getElementById('petitionId').value = data.id;
+            document.getElementById('petitionName').value = data.name;
+            document.getElementById('petitionDate').value = data.report_date;
+            document.getElementById('petitionContent').value = data.report_content || '';
+            document.getElementById('petitionResult').value = data.verification_result || '';
+            document.getElementById('petitionAdoption').value = data.organization_adoption === true ? 'true' : (data.organization_adoption === false ? 'false' : '');
+            document.getElementById('petitionStatus').value = data.status || 'processing';
+            openModal('petitionModal');
+        }
+
+        // 编辑模板
+        async function editTemplate(id) {
+            const data = await fetch(`${API_BASE}/template/${id}`).then(r => r.json());
+            document.getElementById('templateId').value = data.id;
+            document.getElementById('templateCode').value = data.template_code;
+            document.getElementById('templateName').value = data.template_name;
+            document.getElementById('templateScenario').value = data.scenario_type;
+            document.getElementById('templateMatter').value = data.matter_type || '';
+            document.getElementById('templateContent').value = data.template_content;
+            document.getElementById('templatePriority').value = data.priority || 0;
+            document.getElementById('templateActive').value = data.is_active ? 'true' : 'false';
+            openModal('templateModal');
         }
 
         // 加载数据
@@ -431,9 +495,10 @@
             loadData(type === 'discipline' ? 'discipline' : type === 'violation' ? 'violation' : type === 'petition' ? 'petition' : 'template');
         }
 
-        // 表单提交处理
+        // 表单提交处理 - 违纪记录
         document.getElementById('disciplineForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = document.getElementById('disciplineId').value;
             const data = {
                 name: document.getElementById('disciplineName').value,
                 department: document.getElementById('disciplineDept').value,
@@ -446,13 +511,19 @@
                 reason: document.getElementById('disciplineReason').value,
                 status: document.getElementById('disciplineStatus').value
             };
-            await fetch(`${API_BASE}/discipline/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (id) {
+                await fetch(`${API_BASE}/discipline/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            } else {
+                await fetch(`${API_BASE}/discipline/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            }
             closeModal('disciplineModal');
             loadDiscipline();
         });
 
+        // 表单提交处理 - 违规记录
         document.getElementById('violationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = document.getElementById('violationId').value;
             const data = {
                 name: document.getElementById('violationName').value,
                 department: document.getElementById('violationDept').value,
@@ -465,13 +536,19 @@
                 reason: document.getElementById('violationReason').value,
                 status: document.getElementById('violationStatus').value
             };
-            await fetch(`${API_BASE}/violation/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (id) {
+                await fetch(`${API_BASE}/violation/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            } else {
+                await fetch(`${API_BASE}/violation/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            }
             closeModal('violationModal');
             loadViolation();
         });
 
+        // 表单提交处理 - 信访举报
         document.getElementById('petitionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = document.getElementById('petitionId').value;
             const data = {
                 name: document.getElementById('petitionName').value,
                 report_date: document.getElementById('petitionDate').value,
@@ -480,13 +557,19 @@
                 organization_adoption: document.getElementById('petitionAdoption').value === 'true' ? true : (document.getElementById('petitionAdoption').value === 'false' ? false : null),
                 status: document.getElementById('petitionStatus').value
             };
-            await fetch(`${API_BASE}/petition/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (id) {
+                await fetch(`${API_BASE}/petition/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            } else {
+                await fetch(`${API_BASE}/petition/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            }
             closeModal('petitionModal');
             loadPetition();
         });
 
+        // 表单提交处理 - 模板
         document.getElementById('templateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = document.getElementById('templateId').value;
             const data = {
                 template_code: document.getElementById('templateCode').value,
                 template_name: document.getElementById('templateName').value,
@@ -496,7 +579,11 @@
                 priority: parseInt(document.getElementById('templatePriority').value),
                 is_active: document.getElementById('templateActive').value === 'true'
             };
-            await fetch(`${API_BASE}/template/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (id) {
+                await fetch(`${API_BASE}/template/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            } else {
+                await fetch(`${API_BASE}/template/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            }
             closeModal('templateModal');
             loadTemplates();
         });

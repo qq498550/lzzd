@@ -68,10 +68,6 @@
                         <option value="其他">其他</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="currentDate">当前日期（可选，默认今天）</label>
-                    <input type="date" id="currentDate" name="currentDate">
-                </div>
                 <button type="submit" class="btn">🔍 开始智能查询</button>
             </form>
         </div>
@@ -110,7 +106,6 @@
             
             const name = document.getElementById('name').value.trim();
             const matterType = document.getElementById('matterType').value;
-            const currentDate = document.getElementById('currentDate').value;
             
             if (!name) {
                 alert('请输入姓名');
@@ -126,9 +121,6 @@
                     name: name,
                     matter_type: matterType
                 };
-                if (currentDate) {
-                    payload.current_date = currentDate;
-                }
                 
                 const response = await fetch('/api/query/', {
                     method: 'POST',
