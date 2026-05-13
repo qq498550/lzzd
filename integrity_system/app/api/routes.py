@@ -6,12 +6,44 @@ from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date, datetime
+from urllib.parse import quote
 import json
 import io
 import csv
 import base64
 
 from app.models.database import get_db
+
+
+def get_column_letter(col_idx):
+    """将列索引转换为Excel列字母 (1=A, 2=B, ..., 26=Z, 27=AA, ... )"""
+    result = ""
+    while col_idx > 0:
+        col_idx, remainder = divmod(col_idx - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
+
+def status_to_chinese(status):
+    """将状态值转换为中文显示"""
+    status_map = {
+        'processing': '处理中',
+        'completed': '已完成',
+        'influence_period_ended': '影响期截止',
+        'closed': '已关闭'
+    }
+    return status_map.get(status, status)
+
+
+def chinese_to_status(text):
+    """将中文状态转换为存储值"""
+    status_map = {
+        '处理中': 'processing',
+        '已完成': 'completed',
+        '影响期截止': 'influence_period_ended',
+        '已关闭': 'closed'
+    }
+    return status_map.get(text, text if text in ['processing', 'completed', 'influence_period_ended'] else 'completed')
 from app.schemas import (
     DisciplineRecordCreate, DisciplineRecordResponse, DisciplineRecordUpdate,
     ViolationRecordCreate, ViolationRecordResponse, ViolationRecordUpdate,
@@ -471,106 +503,314 @@ def admin_login(username: str = Form(...), password: str = Form(...)):
 # ==================== 数据导入导出 ====================
 @router.get("/export/discipline", tags=["数据导入导出"])
 def export_discipline_records(db: Session = Depends(get_db)):
-    """导出违纪记录为CSV"""
-    from app.models.database import DisciplineRecord
-    records = db.query(DisciplineRecord).all()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['ID', '姓名', '部门', '职务', '处理机构', '问责情况', '问责时间', 
-                     '有无影响期', '影响期截止', '事由', '状态'])
-    
-    for r in records:
-        writer.writerow([
-            r.id, r.name, r.department or '', r.position or '', r.processing_org or '',
-            r.accountability_type, r.accountability_date, 
-            '有' if r.has_influence_period else '无', r.influence_end_date or '',
-            r.reason or '', r.status
-        ])
-    
-    output.seek(0)
-    return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('utf-8-sig')),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=违纪记录.csv"}
-    )
+    """导出违纪记录为Excel"""
+    try:
+        from app.models.database import DisciplineRecord
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        
+        records = db.query(DisciplineRecord).all()
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "违纪记录"
+        
+        # 标题行
+        ws.cell(row=1, column=1, value='违纪记录导出')
+        title_cell = ws.cell(row=1, column=1)
+        title_cell.font = Font(bold=True, size=14)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
+        
+        # 表头
+        headers = ['ID', '姓名*', '分公司', '部门', '职务', '处理机构', '问责情况*', '问责时间*', 
+                   '有无影响期', '影响期截止日期', '事由*', '状态']
+        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
+        header_font = Font(bold=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # 数据行
+        for r in records:
+            ws.append([
+                r.id, r.name, r.branch_company or '', r.department or '', r.position or '',
+                r.processing_org or '', r.accountability_type or '', 
+                r.accountability_date.strftime('%Y-%m-%d') if r.accountability_date else '',
+                '有' if r.has_influence_period else '无',
+                r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
+                r.reason or '', status_to_chinese(r.status)
+            ])
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=ws.max_row, column=col).border = thin_border
+        
+        # 调整列宽
+        for col_idx in range(1, len(headers) + 1):
+            max_length = 0
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.value:
+                    try:
+                        max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('违纪记录.xlsx')}"}
+        )
+    except Exception as e:
+        import traceback
+        print(f"[导出违纪] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
 @router.get("/export/violation", tags=["数据导入导出"])
 def export_violation_records(db: Session = Depends(get_db)):
-    """导出违规记录为CSV"""
-    from app.models.database import ViolationRecord
-    records = db.query(ViolationRecord).all()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['ID', '姓名', '部门', '职务', '处理机构', '问责类型', '问责时间', 
-                     '有无影响期', '影响期截止', '事由', '状态'])
-    
-    for r in records:
-        writer.writerow([
-            r.id, r.name, r.department or '', r.position or '', r.processing_org or '',
-            r.violation_type, r.violation_date,
-            '有' if r.has_influence_period else '无', r.influence_end_date or '',
-            r.reason or '', r.status
-        ])
-    
-    output.seek(0)
-    return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('utf-8-sig')),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=违规记录.csv"}
-    )
+    """导出违规记录为Excel"""
+    try:
+        from app.models.database import ViolationRecord
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        
+        records = db.query(ViolationRecord).all()
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "违规记录"
+        
+        # 标题行
+        ws.cell(row=1, column=1, value='违规记录导出')
+        title_cell = ws.cell(row=1, column=1)
+        title_cell.font = Font(bold=True, size=14)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
+        
+        # 表头
+        headers = ['ID', '姓名*', '分公司', '部门', '职务', '处理机构', '问责类型*', '问责时间*', 
+                   '有无影响期', '影响期截止日期', '事由*', '状态']
+        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
+        header_font = Font(bold=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # 数据行
+        for r in records:
+            ws.append([
+                r.id, r.name, r.branch_company or '', r.department or '', r.position or '',
+                r.processing_org or '', r.violation_type or '',
+                r.violation_date.strftime('%Y-%m-%d') if r.violation_date else '',
+                '有' if r.has_influence_period else '无',
+                r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
+                r.reason or '', status_to_chinese(r.status)
+            ])
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=ws.max_row, column=col).border = thin_border
+        
+        # 调整列宽
+        for col_idx in range(1, len(headers) + 1):
+            max_length = 0
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.value:
+                    try:
+                        max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('违规记录.xlsx')}"}
+        )
+    except Exception as e:
+        import traceback
+        print(f"[导出违规] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
 @router.get("/export/petition", tags=["数据导入导出"])
 def export_petition_records(db: Session = Depends(get_db)):
-    """导出信访举报记录为CSV"""
-    from app.models.database import PetitionReport
-    records = db.query(PetitionReport).all()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['ID', '姓名', '举报日期', '举报内容', '核查结果', '组织采信', '状态'])
-    
-    for r in records:
-        writer.writerow([
-            r.id, r.name, r.report_date, r.report_content or '',
-            r.verification_result or '', 
-            '是' if r.organization_adoption else ('否' if r.organization_adoption is False else ''),
-            r.status
-        ])
-    
-    output.seek(0)
-    return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('utf-8-sig')),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=信访举报记录.csv"}
-    )
+    """导出信访举报记录为Excel"""
+    try:
+        from app.models.database import PetitionReport
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        
+        records = db.query(PetitionReport).all()
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "信访举报"
+        
+        # 标题行
+        ws.cell(row=1, column=1, value='信访举报记录导出')
+        title_cell = ws.cell(row=1, column=1)
+        title_cell.font = Font(bold=True, size=14)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=11)
+        
+        # 表头
+        headers = ['ID', '姓名*', '分公司', '部门', '举报日期*', '举报内容*', '核查结果', 
+                   '组织是否采信', '有无影响期', '影响期截止日期', '状态']
+        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
+        header_font = Font(bold=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # 数据行
+        for r in records:
+            ws.append([
+                r.id, r.name, r.branch_company or '', r.department or '',
+                r.report_date.strftime('%Y-%m-%d') if r.report_date else '',
+                r.report_content or '', r.verification_result or '',
+                '是' if r.organization_adoption else ('否' if r.organization_adoption is False else ''),
+                '有' if r.has_influence_period else '无',
+                r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
+                status_to_chinese(r.status)
+            ])
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=ws.max_row, column=col).border = thin_border
+        
+        # 调整列宽
+        for col_idx in range(1, len(headers) + 1):
+            max_length = 0
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.value:
+                    try:
+                        max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('信访举报记录.xlsx')}"}
+        )
+    except Exception as e:
+        import traceback
+        print(f"[导出信访] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
 @router.get("/export/template", tags=["数据导入导出"])
 def export_templates(db: Session = Depends(get_db)):
-    """导出答复模板为CSV"""
-    from app.models.database import AnswerTemplate
-    records = db.query(AnswerTemplate).all()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['ID', '模板编号', '模板名称', '适用场景', '事项类型', '模板内容', '优先级', '是否启用'])
-    
-    for r in records:
-        writer.writerow([
-            r.id, r.template_code, r.template_name, r.scenario_type, r.matter_type,
-            r.template_content, r.priority, '是' if r.is_active else '否'
-        ])
-    
-    output.seek(0)
-    return StreamingResponse(
-        io.BytesIO(output.getvalue().encode('utf-8-sig')),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=答复模板.csv"}
-    )
+    """导出答复模板为Excel"""
+    try:
+        from app.models.database import AnswerTemplate
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        
+        records = db.query(AnswerTemplate).all()
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "答复模板"
+        
+        # 标题行
+        ws.cell(row=1, column=1, value='答复模板导出')
+        title_cell = ws.cell(row=1, column=1)
+        title_cell.font = Font(bold=True, size=14)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=8)
+        
+        # 表头
+        headers = ['ID', '模板编号', '模板名称', '适用场景', '事项类型', '模板内容', '优先级', '是否启用']
+        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
+        header_font = Font(bold=True)
+        thin_border = Border(
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
+        )
+        
+        ws.append(headers)
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=2, column=col)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = thin_border
+        
+        # 数据行
+        for r in records:
+            ws.append([
+                r.id, r.template_code, r.template_name, r.scenario_type, r.matter_type,
+                r.template_content, r.priority, '是' if r.is_active else '否'
+            ])
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=ws.max_row, column=col).border = thin_border
+        
+        # 调整列宽
+        for col_idx in range(1, len(headers) + 1):
+            max_length = 0
+            for row_idx in range(1, ws.max_row + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                if cell.value:
+                    try:
+                        max_length = max(max_length, len(str(cell.value)))
+                    except:
+                        pass
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 50)
+        
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('答复模板.xlsx')}"}
+        )
+    except Exception as e:
+        import traceback
+        print(f"[导出模板] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
 @router.get("/template/download", tags=["数据导入导出"])
@@ -582,30 +822,30 @@ def download_import_template():
     # 违纪记录模板
     writer.writerow(['=== 违纪记录导入模板 ==='])
     writer.writerow(['姓名', '部门', '职务', '处理机构', '问责情况', '问责时间 (YYYY-MM-DD)', 
-                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (completed/processing)'])
+                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (已完成/处理中)'])
     writer.writerow(['张三', 'XX部门', 'XX职务', 'XX纪委', '党内警告', '2023-01-15', 
-                     'true', '2024-01-15', '违反工作纪律', 'completed'])
+                     'true', '2024-01-15', '违反工作纪律', '已完成'])
     writer.writerow([])
     
     # 违规记录模板
     writer.writerow(['=== 违规记录导入模板 ==='])
     writer.writerow(['姓名', '部门', '职务', '处理机构', '问责类型', '问责时间 (YYYY-MM-DD)', 
-                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (completed/processing)'])
+                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (已完成/处理中)'])
     writer.writerow(['李四', 'XX部门', 'XX职务', 'XX纪委', '政务记过', '2023-02-20', 
-                     'true', '2024-02-20', '违反廉洁纪律', 'completed'])
+                     'true', '2024-02-20', '违反廉洁纪律', '已完成'])
     writer.writerow([])
     
     # 信访举报模板
     writer.writerow(['=== 信访举报导入模板 ==='])
-    writer.writerow(['姓名', '举报日期 (YYYY-MM-DD)', '举报内容', '核查结果', '组织采信 (true/false/null)', '状态 (processing/completed/closed)'])
-    writer.writerow(['王五', '2023-03-10', '反映收受礼金问题', '未发现相关证据', 'false', 'completed'])
+    writer.writerow(['姓名', '举报日期 (YYYY-MM-DD)', '举报内容', '核查结果', '组织采信 (true/false/null)', '状态 (已完成/处理中/影响期截止)'])
+    writer.writerow(['王五', '2023-03-10', '反映收受礼金问题', '未发现相关证据', 'false', '已完成'])
     writer.writerow([])
     
     output.seek(0)
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8-sig')),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=导入模板.csv"}
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote('导入模板.csv')}"}
     )
 
 
@@ -649,7 +889,7 @@ async def import_discipline_records(file: UploadFile = File(...), db: Session = 
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=str(row[9]).strip() if row[9] else '',
-                    status=str(row[10]).strip() if row[10] else 'completed'
+                    status=chinese_to_status(str(row[10]).strip()) if row[10] else 'completed'
                 )
                 db.add(record)
                 count += 1
@@ -689,7 +929,7 @@ async def import_discipline_records(file: UploadFile = File(...), db: Session = 
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
-                    status=values[10].strip() if len(values) > 10 and values[10].strip() else 'completed'
+                    status=chinese_to_status(values[10].strip()) if len(values) > 10 and values[10].strip() else 'completed'
                 )
                 db.add(record)
                 count += 1
@@ -740,7 +980,7 @@ async def import_violation_records(file: UploadFile = File(...), db: Session = D
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=str(row[9]).strip() if row[9] else '',
-                    status=str(row[10]).strip() if row[10] else 'completed'
+                    status=chinese_to_status(str(row[10]).strip()) if row[10] else 'completed'
                 )
                 db.add(record)
                 count += 1
@@ -780,7 +1020,7 @@ async def import_violation_records(file: UploadFile = File(...), db: Session = D
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
-                    status=values[10].strip() if len(values) > 10 and values[10].strip() else 'completed'
+                    status=chinese_to_status(values[10].strip()) if len(values) > 10 and values[10].strip() else 'completed'
                 )
                 db.add(record)
                 count += 1
@@ -837,7 +1077,7 @@ async def import_petition_records(file: UploadFile = File(...), db: Session = De
                     organization_adoption=org_adoption,
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
-                    status=str(row[9]).strip() if row[9] else 'processing'
+                    status=chinese_to_status(str(row[9]).strip()) if row[9] else 'processing'
                 )
                 db.add(record)
                 count += 1
@@ -883,7 +1123,7 @@ async def import_petition_records(file: UploadFile = File(...), db: Session = De
                     organization_adoption=org_adoption,
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
-                    status=values[9].strip() if len(values) > 9 and values[9].strip() else 'processing'
+                    status=chinese_to_status(values[9].strip()) if len(values) > 9 and values[9].strip() else 'processing'
                 )
                 db.add(record)
                 count += 1
