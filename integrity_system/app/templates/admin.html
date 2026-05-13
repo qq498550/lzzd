@@ -191,7 +191,10 @@
                 <div class="form-group"><label>影响期截止日期</label><input type="date" id="disciplineEndDate"></div>
                 <div class="form-group"><label>事由 *</label><textarea id="disciplineReason" required></textarea></div>
                 <div class="form-group"><label>状态</label><select id="disciplineStatus"><option value="completed">已办结</option><option value="processing">办理中</option></select></div>
-                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('disciplineModal')">取消</button>
+                </div>
             </form>
         </div>
     </div>
@@ -215,7 +218,10 @@
                 <div class="form-group"><label>影响期截止日期</label><input type="date" id="violationEndDate"></div>
                 <div class="form-group"><label>事由 *</label><textarea id="violationReason" required></textarea></div>
                 <div class="form-group"><label>状态</label><select id="violationStatus"><option value="completed">已办结</option><option value="processing">办理中</option></select></div>
-                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('violationModal')">取消</button>
+                </div>
             </form>
         </div>
     </div>
@@ -235,7 +241,10 @@
                 <div class="form-group"><label>核查结果</label><input type="text" id="petitionResult"></div>
                 <div class="form-group"><label>组织采信</label><select id="petitionAdoption"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select></div>
                 <div class="form-group"><label>状态</label><select id="petitionStatus"><option value="processing">办理中</option><option value="completed">已办结</option><option value="closed">已关闭</option></select></div>
-                <button type="submit" class="btn btn-primary" style="width:100%">保存</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('petitionModal')">取消</button>
+                </div>
             </form>
         </div>
     </div>
