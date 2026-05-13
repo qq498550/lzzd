@@ -2,13 +2,14 @@
 廉政意见智答系统 - API 路由模块
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Form, UploadFile, File
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, HTMLResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date, datetime
 import json
 import io
 import csv
+import base64
 
 from app.models.database import get_db
 from app.schemas import (
@@ -26,9 +27,22 @@ router = APIRouter()
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
+# 普通用户存储（实际生产环境应使用数据库存储）
+users_db = {
+    "admin": {"password": "admin123", "role": "admin", "name": "系统管理员"},
+}
+
 def verify_admin_credentials(username: str, password: str) -> bool:
     """验证管理员账号"""
-    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
+    user = users_db.get(username)
+    return user is not None and user["password"] == password and user["role"] == "admin"
+
+def verify_user_credentials(username: str, password: str) -> dict:
+    """验证用户账号"""
+    user = users_db.get(username)
+    if user and user["password"] == password:
+        return {"username": username, "role": user["role"], "name": user.get("name", username)}
+    return None
 
 
 # ==================== 违纪记录管理 ====================
@@ -609,3 +623,128 @@ async def import_petition_records(file: UploadFile = File(...), db: Session = De
     
     db.commit()
     return {"success": True, "message": f"成功导入 {count} 条信访举报记录"}
+
+
+# ==================== 用户管理 ====================
+@router.get("/admin/users", tags=["用户管理"])
+def get_users(db: Session = Depends(get_db)):
+    """获取所有用户列表（仅管理员）"""
+    user_list = []
+    for username, info in users_db.items():
+        user_list.append({
+            "username": username,
+            "name": info.get("name", username),
+            "role": info["role"]
+        })
+    return user_list
+
+
+@router.post("/admin/users", tags=["用户管理"])
+def create_user(username: str = Form(...), password: str = Form(...), 
+                name: str = Form(...), role: str = Form("user")):
+    """创建新用户（仅管理员）"""
+    if username in users_db:
+        raise HTTPException(status_code=400, detail="用户名已存在")
+    
+    users_db[username] = {
+        "password": password,
+        "name": name,
+        "role": role
+    }
+    return {"success": True, "message": f"用户 {username} 创建成功"}
+
+
+@router.delete("/admin/users/{username}", tags=["用户管理"])
+def delete_user(username: str):
+    """删除用户（仅管理员）"""
+    if username not in users_db:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    if username == "admin":
+        raise HTTPException(status_code=400, detail="不能删除管理员账号")
+    
+    del users_db[username]
+    return {"success": True, "message": f"用户 {username} 已删除"}
+
+
+@router.post("/admin/users/{username}/reset-password", tags=["用户管理"])
+def reset_password(username: str, new_password: str = Form(...)):
+    """重置用户密码（仅管理员）"""
+    if username not in users_db:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    users_db[username]["password"] = new_password
+    return {"success": True, "message": f"用户 {username} 密码已重置"}
+
+
+@router.post("/admin/change-password", tags=["管理员"])
+def change_password(old_password: str = Form(...), new_password: str = Form(...)):
+    """修改管理员密码"""
+    # 这里简单处理，实际应该结合 session 或 token 验证当前登录用户
+    if not verify_admin_credentials("admin", old_password):
+        raise HTTPException(status_code=401, detail="原密码错误")
+    
+    users_db["admin"]["password"] = new_password
+    return {"success": True, "message": "密码修改成功"}
+
+
+@router.post("/user/login", tags=["用户"])
+def user_login(username: str = Form(...), password: str = Form(...)):
+    """用户登录验证"""
+    user = verify_user_credentials(username, password)
+    if user:
+        return {"success": True, "message": "登录成功", "user": user}
+    else:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+
+# ==================== PDF 导出 ====================
+@router.post("/export/pdf", response_class=HTMLResponse, tags=["数据导入导出"])
+def export_pdf_answer(query_name: str = Form(...), matter_type: str = Form(...), 
+                      generated_answer: str = Form(...), conclusion: str = Form(...)):
+    """导出答复函为PDF（使用浏览器打印功能）"""
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <title>廉政意见答复函</title>
+        <style>
+            body {{ font-family: 'SimSun', '宋体', serif; padding: 40px; line-height: 1.8; }}
+            .header {{ text-align: center; margin-bottom: 40px; }}
+            .title {{ font-size: 24px; font-weight: bold; margin-bottom: 10px; }}
+            .content {{ font-size: 16px; text-indent: 2em; margin: 30px 0; }}
+            .conclusion {{ font-size: 16px; margin-top: 30px; }}
+            .footer {{ margin-top: 60px; text-align: right; }}
+            .date {{ margin-top: 20px; }}
+            @media print {{
+                body {{ padding: 20px; }}
+                .no-print {{ display: none; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="title">廉政意见答复函</div>
+        </div>
+        <div class="content">
+            {generated_answer.replace(chr(10), '<br>').replace(' ', '&nbsp;&nbsp;')}
+        </div>
+        <div class="conclusion">
+            <strong>结论：{conclusion}</strong>
+        </div>
+        <div class="footer">
+            <div>陕西销售纪委</div>
+            <div class="date">{datetime.now().strftime('%Y年%m月%d日')}</div>
+        </div>
+        <div class="no-print" style="margin-top: 40px; text-align: center;">
+            <button onclick="window.print()" style="padding: 10px 30px; font-size: 16px; cursor: pointer;">🖨️ 打印/保存为PDF</button>
+            <button onclick="window.close()" style="padding: 10px 30px; font-size: 16px; cursor: pointer; margin-left: 20px;">关闭</button>
+        </div>
+        <script>
+            // 自动触发打印对话框
+            // window.onload = function() {{ window.print(); }}
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
