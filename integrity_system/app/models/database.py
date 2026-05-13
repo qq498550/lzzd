@@ -23,6 +23,7 @@ class DisciplineRecord(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), index=True, nullable=False)
+    branch_company = Column(String(200))  # 分公司
     department = Column(String(200))
     position = Column(String(200))
     processing_org = Column(String(200))  # 处理机构
@@ -42,6 +43,7 @@ class ViolationRecord(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), index=True, nullable=False)
+    branch_company = Column(String(200))  # 分公司
     department = Column(String(200))
     position = Column(String(200))
     processing_org = Column(String(200))  # 处理机构
@@ -62,6 +64,7 @@ class PetitionReport(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), index=True, nullable=False)
     branch_company = Column(String(200))  # 分公司
+    department = Column(String(200))  # 部门
     report_date = Column(Date)
     report_content = Column(Text)
     verification_result = Column(String(200))  # 核查结果
@@ -92,7 +95,7 @@ class AnswerTemplate(Base):
 class QueryLog(Base):
     """查询日志表"""
     __tablename__ = "query_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     query_name = Column(String(100))
     matter_type = Column(String(100))
@@ -102,9 +105,58 @@ class QueryLog(Base):
     operator = Column(String(100))
 
 
+class OperationLog(Base):
+    """操作日志表"""
+    __tablename__ = "operation_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    module = Column(String(50))  # 模块：discipline/violation/petition/template
+    action = Column(String(20))  # 操作：create/update/delete
+    record_id = Column(Integer)  # 操作记录的ID
+    record_name = Column(String(100))  # 操作记录的主要内容（如姓名）
+    description = Column(Text)  # 操作描述
+    operator = Column(String(100))  # 操作人
+    created_at = Column(DateTime, default=datetime.now)
+
+
 def init_db():
     """初始化数据库表"""
+    # 首先创建所有表
     Base.metadata.create_all(bind=engine)
+    # 然后检查并更新表结构，确保新字段存在
+    _upgrade_table_structure()
+
+
+def _upgrade_table_structure():
+    """检查并更新数据库表结构，确保所有新字段存在"""
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    
+    # 需要检查的表和字段
+    tables_to_check = {
+        'discipline_records': ['branch_company'],
+        'violation_records': ['branch_company'],
+        'petition_reports': ['branch_company', 'department']
+    }
+    
+    with engine.connect() as conn:
+        for table_name, columns_to_add in tables_to_check.items():
+            try:
+                existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
+                
+                for column_to_add in columns_to_add:
+                    if column_to_add not in existing_columns:
+                        print(f"[DB] 为表 {table_name} 添加缺失的列: {column_to_add}")
+                        # 使用 SQLite 的 ALTER TABLE ADD COLUMN
+                        try:
+                            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_to_add} VARCHAR(200)"))
+                            conn.commit()
+                            print(f"[DB] 成功添加列 {table_name}.{column_to_add}")
+                        except Exception as e:
+                            print(f"[DB] 添加列 {table_name}.{column_to_add} 时出错: {e}")
+                            conn.rollback()
+            except Exception as e:
+                print(f"[DB] 检查表 {table_name} 结构时出错: {e}")
 
 
 def get_db():

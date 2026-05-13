@@ -11,19 +11,24 @@
 - **影响期判断**：自动计算处分影响期状态（已过/尚在/不适用）
 - **模板匹配**：8类标准答复模板，按优先级自动匹配
 - **答复生成**：动态填充变量，生成规范化答复文本
+- **空记录提示**：查询姓名不存在时，返回"查询结果为空，请确认输入是否正确"
 
 ### 管理后台
-- 违纪记录管理（增删改查）
-- 违规记录管理（增删改查）
-- 信访举报管理（增删改查）
-- 答复模板管理（增删改查）
-- 查询日志查看
-- 数据概览仪表板
+- **数据概览**：统计卡片展示各类型记录数量、今日查询数，查询记录表格展示所有历史查询
+- **记录管理**：违纪记录、违规记录、信访举报、答复模板的增删改查
+- **操作日志**：自动记录所有增删改操作，支持查看和清空
+- **数据导入导出**：支持CSV格式批量导入导出
+- **登录验证**：管理员账号密码保护（默认：admin/admin123）
+- **密码修改**：支持修改管理员密码
+
+### 安全特性
+- 管理后台登录验证
+- 操作日志全程记录
 
 ## 技术栈
 
 - **后端**：FastAPI + SQLAlchemy + SQLite
-- **前端**：原生 HTML/CSS/JavaScript
+- **前端**：原生 HTML/CSS/JavaScript + Bootstrap
 - **模板引擎**：Jinja2
 - **数据验证**：Pydantic
 
@@ -68,7 +73,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ### 3. 访问系统
 
 - **查询首页**：http://localhost:8000/
-- **管理后台**：http://localhost:8000/admin
+- **管理后台**：http://localhost:8000/admin（默认账号：admin，密码：admin123）
 - **API文档**：http://localhost:8000/docs
 
 ## API接口
@@ -91,7 +96,19 @@ POST /api/query/
 
 ### 查询历史
 ```bash
-GET /api/query/{name}/history
+GET /api/query/logs
+```
+
+### 操作日志
+```bash
+GET /api/operation/logs     # 获取操作日志
+DELETE /api/operation/logs   # 清空操作日志
+```
+
+### 管理员接口
+```bash
+POST /api/admin/login               # 管理员登录
+POST /api/admin/change-password      # 修改管理员密码
 ```
 
 ## 答复模板说明
@@ -106,13 +123,37 @@ GET /api/query/{name}/history
 | T7 | 信访举报正在办理中 | 建议暂缓提拔 |
 | T8 | 尚在处分影响期内 | 建议不宜作为拟提拔人选 |
 
+## 数据库表结构
+
+### OperationLog（操作日志）
+| 字段 | 类型 | 说明 |
+|-----|------|------|
+| id | Integer | 主键 |
+| module | String | 模块名称 |
+| action | String | 操作类型（创建/修改/删除） |
+| record_id | Integer | 关联记录ID |
+| record_name | String | 记录名称 |
+| description | String | 操作描述 |
+| operator | String | 操作人 |
+| created_at | DateTime | 创建时间 |
+
+### QueryLog（查询日志）
+| 字段 | 类型 | 说明 |
+|-----|------|------|
+| id | Integer | 主键 |
+| query_name | String | 查询姓名 |
+| matter_type | String | 事项类型 |
+| result_template | String | 匹配模板 |
+| conclusion | String | 查询结论 |
+| query_time | DateTime | 查询时间 |
+
 ## 示例数据
 
 系统启动时会自动初始化8个标准答复模板。可通过管理后台添加测试数据：
 
 ### 测试案例1：无记录
-- 查询姓名：李明
-- 预期结果：模板T1，不持异议
+- 查询姓名：李明（数据库中不存在）
+- 预期结果：**查询结果为空，请确认输入是否正确。**
 
 ### 测试案例2：已过影响期
 - 添加违纪记录：王五，警告处分，2025-04-13，影响期截止2026-01-01
@@ -133,14 +174,7 @@ GET /api/query/{name}/history
 
 1. 首次启动会自动创建SQLite数据库并初始化模板数据
 2. 数据库文件位于 `data/integrity.db`
-3. 支持模糊查询姓名
-4. 影响期判断基于当前日期（可手动指定）
-5. 多条记录时，任一记录尚在影响期内则优先匹配T8模板
-
-## 扩展建议
-
-- 对接Excel批量导入功能
-- 增加用户权限管理
-- 支持更多事项类型配置
-- 导出PDF格式答复函
-- 对接组织人事系统API
+3. 管理后台需要登录，默认账号：`admin`，密码：`admin123`
+4. 所有增删改操作会自动记录到操作日志
+5. 影响期判断基于当前日期（可手动指定）
+6. 多条记录时，任一记录尚在影响期内则优先匹配T8模板

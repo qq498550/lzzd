@@ -17,24 +17,57 @@ from app.schemas import (
     ViolationRecordCreate, ViolationRecordResponse, ViolationRecordUpdate,
     PetitionReportCreate, PetitionReportResponse, PetitionReportUpdate,
     AnswerTemplateCreate, AnswerTemplateResponse, AnswerTemplateUpdate,
-    QueryRequest, QueryResponse
+    QueryRequest, QueryResponse, OperationLogCreate, OperationLogResponse
 )
 from app.services.integrity_service import IntegrityService
 from app.core.config import settings
 
 router = APIRouter()
 
+# 用户数据库（内存存储）
+users_db = {
+    "admin": {
+        "username": "admin",
+        "password": settings.admin_password,
+        "name": "系统管理员",
+        "role": "admin"
+    }
+}
+
 
 def verify_admin_credentials(username: str, password: str) -> bool:
     """验证管理员账号"""
+    if username in users_db and users_db[username]["role"] == "admin":
+        return users_db[username]["password"] == password
     return username == settings.admin_username and password == settings.admin_password
 
 
 def verify_user_credentials(username: str, password: str) -> dict:
     """验证用户账号"""
+    if username in users_db and users_db[username]["password"] == password:
+        return {"username": username, "role": users_db[username]["role"], "name": users_db[username]["name"]}
     if username == settings.admin_username and password == settings.admin_password:
         return {"username": username, "role": "admin", "name": "系统管理员"}
     return None
+
+
+def log_operation(db: Session, module: str, action: str, record_id: int, record_name: str, description: str, operator: str = "系统管理员"):
+    """记录操作日志"""
+    from app.models.database import OperationLog
+    try:
+        log = OperationLog(
+            module=module,
+            action=action,
+            record_id=record_id,
+            record_name=record_name,
+            description=description,
+            operator=operator
+        )
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        print(f"[操作日志] 记录失败: {e}")
+        db.rollback()
 
 
 # ==================== 违纪记录管理 ====================
@@ -46,6 +79,8 @@ def create_discipline_record(record: DisciplineRecordCreate, db: Session = Depen
     db.add(db_record)
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    log_operation(db, "违纪记录", "创建", db_record.id, db_record.name, f"新增违纪记录：{db_record.name}")
     return db_record
 
 
@@ -74,13 +109,17 @@ def update_discipline_record(record_id: int, record: DisciplineRecordUpdate, db:
     db_record = db.query(DisciplineRecord).filter(DisciplineRecord.id == record_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
-    
+
+    old_name = db_record.name
     update_data = record.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_record, key, value)
-    
+
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    new_name = db_record.name or old_name
+    log_operation(db, "违纪记录", "修改", db_record.id, new_name, f"修改违纪记录：{new_name}")
     return db_record
 
 
@@ -91,8 +130,11 @@ def delete_discipline_record(record_id: int, db: Session = Depends(get_db)):
     db_record = db.query(DisciplineRecord).filter(DisciplineRecord.id == record_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
+    record_name = db_record.name
     db.delete(db_record)
     db.commit()
+    # 记录操作日志
+    log_operation(db, "违纪记录", "删除", record_id, record_name, f"删除违纪记录：{record_name}")
     return {"message": "删除成功"}
 
 
@@ -105,6 +147,8 @@ def create_violation_record(record: ViolationRecordCreate, db: Session = Depends
     db.add(db_record)
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    log_operation(db, "违规记录", "创建", db_record.id, db_record.name, f"新增违规记录：{db_record.name}")
     return db_record
 
 
@@ -133,13 +177,17 @@ def update_violation_record(record_id: int, record: ViolationRecordUpdate, db: S
     db_record = db.query(ViolationRecord).filter(ViolationRecord.id == record_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
-    
+
+    old_name = db_record.name
     update_data = record.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_record, key, value)
-    
+
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    new_name = db_record.name or old_name
+    log_operation(db, "违规记录", "修改", db_record.id, new_name, f"修改违规记录：{new_name}")
     return db_record
 
 
@@ -150,8 +198,11 @@ def delete_violation_record(record_id: int, db: Session = Depends(get_db)):
     db_record = db.query(ViolationRecord).filter(ViolationRecord.id == record_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
+    record_name = db_record.name
     db.delete(db_record)
     db.commit()
+    # 记录操作日志
+    log_operation(db, "违规记录", "删除", record_id, record_name, f"删除违规记录：{record_name}")
     return {"message": "删除成功"}
 
 
@@ -164,6 +215,8 @@ def create_petition_report(report: PetitionReportCreate, db: Session = Depends(g
     db.add(db_record)
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    log_operation(db, "信访举报", "创建", db_record.id, db_record.name, f"新增信访举报：{db_record.name}")
     return db_record
 
 
@@ -192,13 +245,17 @@ def update_petition_report(report_id: int, report: PetitionReportUpdate, db: Ses
     db_record = db.query(PetitionReport).filter(PetitionReport.id == report_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
-    
+
+    old_name = db_record.name
     update_data = report.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_record, key, value)
-    
+
     db.commit()
     db.refresh(db_record)
+    # 记录操作日志
+    new_name = db_record.name or old_name
+    log_operation(db, "信访举报", "修改", db_record.id, new_name, f"修改信访举报：{new_name}")
     return db_record
 
 
@@ -209,8 +266,11 @@ def delete_petition_report(report_id: int, db: Session = Depends(get_db)):
     db_record = db.query(PetitionReport).filter(PetitionReport.id == report_id).first()
     if not db_record:
         raise HTTPException(status_code=404, detail="记录不存在")
+    record_name = db_record.name
     db.delete(db_record)
     db.commit()
+    # 记录操作日志
+    log_operation(db, "信访举报", "删除", report_id, record_name, f"删除信访举报：{record_name}")
     return {"message": "删除成功"}
 
 
@@ -223,6 +283,8 @@ def create_template(template: AnswerTemplateCreate, db: Session = Depends(get_db
     db.add(db_template)
     db.commit()
     db.refresh(db_template)
+    # 记录操作日志
+    log_operation(db, "答复模板", "创建", db_template.id, db_template.template_code, f"新增答复模板：{db_template.template_name}")
     return db_template
 
 
@@ -251,13 +313,17 @@ def update_template(template_id: int, template: AnswerTemplateUpdate, db: Sessio
     db_template = db.query(AnswerTemplate).filter(AnswerTemplate.id == template_id).first()
     if not db_template:
         raise HTTPException(status_code=404, detail="模板不存在")
-    
+
+    old_name = db_template.template_name
     update_data = template.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_template, key, value)
-    
+
     db.commit()
     db.refresh(db_template)
+    # 记录操作日志
+    new_name = db_template.template_name or old_name
+    log_operation(db, "答复模板", "修改", db_template.id, db_template.template_code, f"修改答复模板：{new_name}")
     return db_template
 
 
@@ -268,8 +334,12 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     db_template = db.query(AnswerTemplate).filter(AnswerTemplate.id == template_id).first()
     if not db_template:
         raise HTTPException(status_code=404, detail="模板不存在")
+    template_name = db_template.template_name
+    template_code = db_template.template_code
     db.delete(db_template)
     db.commit()
+    # 记录操作日志
+    log_operation(db, "答复模板", "删除", template_id, template_code, f"删除答复模板：{template_name}")
     return {"message": "删除成功"}
 
 
@@ -278,36 +348,49 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
     """廉政意见智能查询"""
     service = IntegrityService(db)
-    
+
     # 检索记录 - 当选择"其他"类型时，需要查询所有类型的记录
     search_results = service.search_person_records(query.name, query.matter_type)
-    
+
+    # 检查姓名是否在数据库中存在（违纪、违规、信访中任一有记录）
+    person_exists = len(search_results) > 0
+
     # 匹配模板
     match_result = service.match_template(search_results, query.matter_type)
-    
+
     # 生成答复
-    generated_answer = service.generate_answer(
-        match_result["template_content"],
-        query.name,
-        query.matter_type,
-        search_results
-    )
-    
+    if not person_exists:
+        # 姓名在数据库中不存在，返回提示信息
+        generated_answer = "查询结果为空，请确认输入是否正确。"
+        template_code = ""
+        template_name = ""
+        conclusion = "未找到记录"
+    else:
+        generated_answer = service.generate_answer(
+            match_result["template_content"],
+            query.name,
+            query.matter_type,
+            search_results
+        )
+        template_code = match_result["template_code"]
+        template_name = match_result["template_name"]
+        conclusion = match_result["conclusion"]
+
     # 记录日志
     service.log_query(
         query_name=query.name,
         matter_type=query.matter_type,
-        template_code=match_result["template_code"],
-        conclusion=match_result["conclusion"]
+        template_code=template_code,
+        conclusion=conclusion
     )
-    
+
     return QueryResponse(
         query_name=query.name,
         matter_type=query.matter_type,
         search_results=search_results,
-        matched_template=match_result["template_name"],
-        template_code=match_result["template_code"],
-        conclusion=match_result["conclusion"],
+        matched_template=template_name,
+        template_code=template_code,
+        conclusion=conclusion,
         generated_answer=generated_answer
     )
 
@@ -353,6 +436,26 @@ def get_query_history(name: str, limit: int = 10, db: Session = Depends(get_db))
         }
         for log in logs
     ]
+
+
+# ==================== 操作日志管理 ====================
+@router.get("/operation/logs", response_model=List[OperationLogResponse], tags=["操作日志"])
+def get_operation_logs(limit: int = 100, db: Session = Depends(get_db)):
+    """获取所有操作日志"""
+    from app.models.database import OperationLog
+    logs = db.query(OperationLog).order_by(
+        OperationLog.created_at.desc()
+    ).limit(limit).all()
+    return logs
+
+
+@router.delete("/operation/logs", tags=["操作日志"])
+def clear_operation_logs(db: Session = Depends(get_db)):
+    """清空操作日志"""
+    from app.models.database import OperationLog
+    db.query(OperationLog).delete()
+    db.commit()
+    return {"message": "操作日志已清空"}
 
 
 # ==================== 管理员登录验证 ====================

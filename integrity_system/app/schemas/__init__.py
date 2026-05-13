@@ -6,6 +6,7 @@ from datetime import date, datetime
 # ==================== 违纪记录相关 ====================
 class DisciplineRecordBase(BaseModel):
     name: str = Field(..., description="姓名")
+    branch_company: Optional[str] = Field(None, description="分公司")
     department: Optional[str] = Field(None, description="部门")
     position: Optional[str] = Field(None, description="职务")
     processing_org: Optional[str] = Field(None, description="处理机构")
@@ -23,6 +24,7 @@ class DisciplineRecordCreate(DisciplineRecordBase):
 
 class DisciplineRecordUpdate(BaseModel):
     name: Optional[str] = None
+    branch_company: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
     processing_org: Optional[str] = None
@@ -46,6 +48,7 @@ class DisciplineRecordResponse(DisciplineRecordBase):
 # ==================== 违规记录相关 ====================
 class ViolationRecordBase(BaseModel):
     name: str = Field(..., description="姓名")
+    branch_company: Optional[str] = Field(None, description="分公司")
     department: Optional[str] = Field(None, description="部门")
     position: Optional[str] = Field(None, description="职务")
     processing_org: Optional[str] = Field(None, description="处理机构")
@@ -63,6 +66,7 @@ class ViolationRecordCreate(ViolationRecordBase):
 
 class ViolationRecordUpdate(BaseModel):
     name: Optional[str] = None
+    branch_company: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
     processing_org: Optional[str] = None
@@ -87,6 +91,7 @@ class ViolationRecordResponse(ViolationRecordBase):
 class PetitionReportBase(BaseModel):
     name: str = Field(..., description="姓名")
     branch_company: Optional[str] = Field(None, description="分公司")
+    department: Optional[str] = Field(None, description="部门")
     report_date: date = Field(..., description="举报日期")
     report_content: str = Field(..., description="举报内容")
     verification_result: Optional[str] = Field(None, description="核查结果")
@@ -103,6 +108,7 @@ class PetitionReportCreate(PetitionReportBase):
 class PetitionReportUpdate(BaseModel):
     name: Optional[str] = None
     branch_company: Optional[str] = None
+    department: Optional[str] = None
     report_date: Optional[date] = None
     report_content: Optional[str] = None
     verification_result: Optional[str] = None
@@ -185,3 +191,25 @@ class QueryResponse(BaseModel):
     template_code: Optional[str]
     conclusion: str
     generated_answer: str
+
+
+# ==================== 操作日志相关 ====================
+class OperationLogBase(BaseModel):
+    module: str = Field(..., description="模块：discipline/violation/petition/template")
+    action: str = Field(..., description="操作：create/update/delete")
+    record_id: Optional[int] = Field(None, description="操作记录的ID")
+    record_name: Optional[str] = Field(None, description="操作记录的主要内容")
+    description: Optional[str] = Field(None, description="操作描述")
+    operator: str = Field("系统管理员", description="操作人")
+
+
+class OperationLogCreate(OperationLogBase):
+    pass
+
+
+class OperationLogResponse(OperationLogBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

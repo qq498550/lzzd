@@ -55,21 +55,24 @@
     <div class="home-link"><a href="/">← 返回首页</a></div>
 
     <!-- 侧边栏 -->
-    <div class="sidebar" id="sidebarNav" style="display: block;">
+    <div class="sidebar" id="sidebarNav" style="display: none;">
         <h2>🛡️ 管理后台</h2>
         <div class="nav-item active" onclick="showPage('dashboard')">📊 数据概览</div>
         <div class="nav-item" onclick="showPage('discipline')">📋 违纪记录管理</div>
         <div class="nav-item" onclick="showPage('violation')">⚠️ 违规记录管理</div>
         <div class="nav-item" onclick="showPage('petition')">✉️ 信访举报管理</div>
         <div class="nav-item" onclick="showPage('template')">📝 答复模板管理</div>
-        <div class="nav-item" onclick="showPage('logs')">📜 查询日志</div>
+        <div class="nav-divider" style="border-top: 1px solid rgba(255,255,255,0.2); margin: 15px 0;"></div>
+        <div class="nav-item" onclick="showPage('operationlog')">📜 操作日志</div>
+        <div class="nav-divider" style="border-top: 1px solid rgba(255,255,255,0.2); margin: 15px 0;"></div>
         <div class="nav-item" onclick="showPage('settings')">⚙️ 设置</div>
-        <!-- 已取消登录验证，退出登录功能已禁用 -->
+        <div class="nav-divider" style="border-top: 1px solid rgba(255,255,255,0.2); margin: 15px 0;"></div>
+        <div class="nav-item" onclick="logout()">🚪 退出登录</div>
     </div>
 
-    <!-- 登录页面已禁用 - 直接显示主内容区 -->
+    <!-- 登录页面 -->
     <div id="loginPage" class="main-content" style="margin-left: 0; display: none;">
-        <div class="card" style="width: 400px;">
+        <div class="card" style="width: 400px; margin: 100px auto;">
             <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">管理员登录</h2>
             <form id="loginForm">
                 <div class="form-group">
@@ -93,6 +96,7 @@
         <div id="dashboard" class="page-section active">
             <div class="page-header">
                 <h1>数据概览</h1>
+                <button class="btn btn-primary" onclick="loadDashboard()">🔄 刷新数据</button>
             </div>
             <div class="stats-grid">
                 <div class="stat-card">
@@ -117,8 +121,11 @@
                 </div>
             </div>
             <div class="card">
-                <h3>最近查询记录</h3>
-                <table class="data-table" id="recentQueriesTable">
+                <div class="page-header" style="margin-bottom: 15px;">
+                    <h2 style="font-size: 1.2em; color: #333;">🔍 查询记录</h2>
+                    <button class="btn btn-primary" onclick="loadQueryLogs()">🔄 刷新</button>
+                </div>
+                <table class="data-table" id="queryLogsTable">
                     <thead><tr><th>时间</th><th>姓名</th><th>事项类型</th><th>匹配模板</th><th>结论</th></tr></thead>
                     <tbody></tbody>
                 </table>
@@ -140,7 +147,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="disciplineTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>部门</th><th>问责情况</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责情况</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -161,7 +168,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="violationTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>部门</th><th>问责类型</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责类型</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -182,7 +189,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="petitionTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>举报日期</th><th>核查结果</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>举报日期</th><th>核查结果</th><th>状态</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -197,19 +204,6 @@
             <div class="card">
                 <table class="data-table" id="templateTable">
                     <thead><tr><th>编号</th><th>名称</th><th>适用场景</th><th>优先级</th><th>状态</th><th>操作</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- 查询日志 -->
-        <div id="logs" class="page-section">
-            <div class="page-header">
-                <h1>查询日志</h1>
-            </div>
-            <div class="card">
-                <table class="data-table" id="logsTable">
-                    <thead><tr><th>时间</th><th>姓名</th><th>事项类型</th><th>模板</th><th>结论</th><th>操作员</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -239,6 +233,23 @@
                 </form>
             </div>
         </div>
+
+        <!-- 操作日志 -->
+        <div id="operationlog" class="page-section">
+            <div class="page-header">
+                <h1>操作日志</h1>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="loadOperationLogs()">🔄 刷新</button>
+                    <button class="btn btn-danger" onclick="clearOperationLogs()">🗑️ 清空日志</button>
+                </div>
+            </div>
+            <div class="card">
+                <table class="data-table" id="operationLogsTable">
+                    <thead><tr><th>时间</th><th>模块</th><th>操作类型</th><th>记录名称</th><th>操作描述</th><th>操作人</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- 违纪记录模态框 -->
@@ -251,6 +262,7 @@
             <form id="disciplineForm">
                 <input type="hidden" id="disciplineId">
                 <div class="form-group"><label>姓名 *</label><input type="text" id="disciplineName" required></div>
+                <div class="form-group"><label>分公司</label><input type="text" id="disciplineBranch"></div>
                 <div class="form-group"><label>部门</label><input type="text" id="disciplineDept"></div>
                 <div class="form-group"><label>职务</label><input type="text" id="disciplinePosition"></div>
                 <div class="form-group"><label>处理机构</label><input type="text" id="disciplineOrg"></div>
@@ -277,6 +289,7 @@
             <form id="violationForm">
                 <input type="hidden" id="violationId">
                 <div class="form-group"><label>姓名 *</label><input type="text" id="violationName" required></div>
+                <div class="form-group"><label>分公司</label><input type="text" id="violationBranch"></div>
                 <div class="form-group"><label>部门</label><input type="text" id="violationDept"></div>
                 <div class="form-group"><label>职务</label><input type="text" id="violationPosition"></div>
                 <div class="form-group"><label>处理机构</label><input type="text" id="violationOrg"></div>
@@ -304,6 +317,7 @@
                 <input type="hidden" id="petitionId">
                 <div class="form-group"><label>姓名 *</label><input type="text" id="petitionName" required></div>
                 <div class="form-group"><label>分公司</label><input type="text" id="petitionBranch"></div>
+                <div class="form-group"><label>部门</label><input type="text" id="petitionDept"></div>
                 <div class="form-group"><label>举报日期 *</label><input type="date" id="petitionDate" required></div>
                 <div class="form-group"><label>举报内容 *</label><textarea id="petitionContent" required></textarea></div>
                 <div class="form-group"><label>核查结果</label><input type="text" id="petitionResult"></div>
@@ -402,6 +416,7 @@
             const data = await fetch(`${API_BASE}/discipline/${id}`).then(r => r.json());
             document.getElementById('disciplineId').value = data.id;
             document.getElementById('disciplineName').value = data.name;
+            document.getElementById('disciplineBranch').value = data.branch_company || '';
             document.getElementById('disciplineDept').value = data.department || '';
             document.getElementById('disciplinePosition').value = data.position || '';
             document.getElementById('disciplineOrg').value = data.processing_org || '';
@@ -419,6 +434,7 @@
             const data = await fetch(`${API_BASE}/violation/${id}`).then(r => r.json());
             document.getElementById('violationId').value = data.id;
             document.getElementById('violationName').value = data.name;
+            document.getElementById('violationBranch').value = data.branch_company || '';
             document.getElementById('violationDept').value = data.department || '';
             document.getElementById('violationPosition').value = data.position || '';
             document.getElementById('violationOrg').value = data.processing_org || '';
@@ -437,6 +453,7 @@
             document.getElementById('petitionId').value = data.id;
             document.getElementById('petitionName').value = data.name;
             document.getElementById('petitionBranch').value = data.branch_company || '';
+            document.getElementById('petitionDept').value = data.department || '';
             document.getElementById('petitionDate').value = data.report_date;
             document.getElementById('petitionContent').value = data.report_content || '';
             document.getElementById('petitionResult').value = data.verification_result || '';
@@ -469,34 +486,49 @@
             else if (page === 'violation') loadViolation();
             else if (page === 'petition') loadPetition();
             else if (page === 'template') loadTemplates();
-            else if (page === 'logs') loadLogs();
+            else if (page === 'operationlog') loadOperationLogs();
         }
 
         // 加载仪表板
         async function loadDashboard() {
             const [discipline, violation, petition, template, logs] = await Promise.all([
-                fetch(`${API_BASE}/discipline/?limit=1000`).then(r => r.json()),
-                fetch(`${API_BASE}/violation/?limit=1000`).then(r => r.json()),
-                fetch(`${API_BASE}/petition/?limit=1000`).then(r => r.json()),
-                fetch(`${API_BASE}/template/?limit=1000`).then(r => r.json()),
-                fetch(`${API_BASE}/query/logs?limit=10`).catch(() => [])
+                fetch(`${API_BASE}/discipline/?limit=1000`).then(r => r.json()).catch(() => []),
+                fetch(`${API_BASE}/violation/?limit=1000`).then(r => r.json()).catch(() => []),
+                fetch(`${API_BASE}/petition/?limit=1000`).then(r => r.json()).catch(() => []),
+                fetch(`${API_BASE}/template/?limit=1000`).then(r => r.json()).catch(() => []),
+                fetch(`${API_BASE}/query/logs?limit=1000`).then(r => r.json()).catch(() => [])
             ]);
-            
-            document.getElementById('statDiscipline').textContent = discipline.length;
-            document.getElementById('statViolation').textContent = violation.length;
-            document.getElementById('statPetition').textContent = petition.length;
-            document.getElementById('statTemplate').textContent = template.length;
-            document.getElementById('statQueries').textContent = logs.length || 0;
-            
-            const tbody = document.querySelector('#recentQueriesTable tbody');
-            if (logs && logs.length > 0) {
-                tbody.innerHTML = logs.map(l => `
+
+            document.getElementById('statDiscipline').textContent = Array.isArray(discipline) ? discipline.length : 0;
+            document.getElementById('statViolation').textContent = Array.isArray(violation) ? violation.length : 0;
+            document.getElementById('statPetition').textContent = Array.isArray(petition) ? petition.length : 0;
+            document.getElementById('statTemplate').textContent = Array.isArray(template) ? template.length : 0;
+
+            // 确保 logs 是数组
+            const validLogs = Array.isArray(logs) ? logs : [];
+            const today = new Date().toDateString();
+            const todayLogs = validLogs.filter(l => l && l.query_time && new Date(l.query_time).toDateString() === today);
+            document.getElementById('statQueries').textContent = todayLogs.length;
+
+            // 同时加载查询记录表格
+            loadQueryLogsTable(validLogs);
+        }
+
+        // 加载查询记录表格（用于数据概览页面）
+        async function loadQueryLogsTable(logsData) {
+            let data = logsData;
+            if (!data) {
+                data = await fetch(`${API_BASE}/query/logs?limit=100`).then(r => r.json()).catch(() => []);
+            }
+            const tbody = document.querySelector('#queryLogsTable tbody');
+            if (Array.isArray(data) && data.length > 0) {
+                tbody.innerHTML = data.map(item => `
                     <tr>
-                        <td>${new Date(l.query_time).toLocaleString()}</td>
-                        <td>${l.query_name}</td>
-                        <td>${l.matter_type}</td>
-                        <td>${l.result_template}</td>
-                        <td>${l.conclusion}</td>
+                        <td>${item.query_time ? new Date(item.query_time).toLocaleString() : '-'}</td>
+                        <td>${item.query_name || '-'}</td>
+                        <td>${item.matter_type || '-'}</td>
+                        <td>${item.result_template || '-'}</td>
+                        <td>${item.conclusion || '-'}</td>
                     </tr>
                 `).join('');
             } else {
@@ -528,6 +560,7 @@
                 <tr>
                     <td>${item.id}</td>
                     <td>${item.name}</td>
+                    <td>${item.branch_company || '-'}</td>
                     <td>${item.department || '-'}</td>
                     <td>${item.accountability_type}</td>
                     <td>${item.accountability_date}</td>
@@ -566,6 +599,7 @@
                 <tr>
                     <td>${item.id}</td>
                     <td>${item.name}</td>
+                    <td>${item.branch_company || '-'}</td>
                     <td>${item.department || '-'}</td>
                     <td>${item.violation_type}</td>
                     <td>${item.violation_date}</td>
@@ -607,6 +641,7 @@
                     <td>${item.id}</td>
                     <td>${item.name}</td>
                     <td>${item.branch_company || '-'}</td>
+                    <td>${item.department || '-'}</td>
                     <td>${item.report_date}</td>
                     <td>${item.verification_result || '-'}</td>
                     <td>${statusHtml}</td>
@@ -618,7 +653,7 @@
                 `;
             }).join('');
         }
-板
+
         async function loadTemplates() {
             const data = await fetch(`${API_BASE}/template/`).then(r => r.json());
             const tbody = document.querySelector('#templateTable tbody');
@@ -635,31 +670,6 @@
                     </td>
                 </tr>
             `).join('');
-        }
-
-        // 加载日志
-        async function loadLogs() {
-            try {
-                const data = await fetch(`${API_BASE}/query/logs?limit=100`).then(r => r.json());
-                const tbody = document.querySelector('#logsTable tbody');
-                if (data && data.length > 0) {
-                    tbody.innerHTML = data.map(item => `
-                        <tr>
-                            <td>${new Date(item.query_time).toLocaleString()}</td>
-                            <td>${item.query_name}</td>
-                            <td>${item.matter_type}</td>
-                            <td>${item.result_template}</td>
-                            <td>${item.conclusion}</td>
-                            <td>${item.operator || '-'}</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="6">暂无日志</td></tr>';
-                }
-            } catch(e) {
-                console.error('加载日志失败:', e);
-                document.querySelector('#logsTable tbody').innerHTML = '<tr><td colspan="6">暂无日志</td></tr>';
-            }
         }
 
         // 删除记录
@@ -719,103 +729,215 @@
         document.getElementById('disciplineForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('disciplineId').value;
-            const data = {
-                name: document.getElementById('disciplineName').value,
-                department: document.getElementById('disciplineDept').value,
-                position: document.getElementById('disciplinePosition').value,
-                processing_org: document.getElementById('disciplineOrg').value,
-                accountability_type: document.getElementById('disciplineType').value,
-                accountability_date: document.getElementById('disciplineDate').value,
-                has_influence_period: document.getElementById('disciplineHasPeriod').value === 'true',
-                influence_end_date: document.getElementById('disciplineEndDate').value || null,
-                reason: document.getElementById('disciplineReason').value
-            };
-            if (id) {
-                await fetch(`${API_BASE}/discipline/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            } else {
-                await fetch(`${API_BASE}/discipline/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+            
+            try {
+                const data = {
+                    name: document.getElementById('disciplineName').value,
+                    branch_company: document.getElementById('disciplineBranch').value,
+                    department: document.getElementById('disciplineDept').value,
+                    position: document.getElementById('disciplinePosition').value,
+                    processing_org: document.getElementById('disciplineOrg').value,
+                    accountability_type: document.getElementById('disciplineType').value,
+                    accountability_date: document.getElementById('disciplineDate').value,
+                    has_influence_period: document.getElementById('disciplineHasPeriod').value === 'true',
+                    influence_end_date: document.getElementById('disciplineEndDate').value || null,
+                    reason: document.getElementById('disciplineReason').value
+                };
+                
+                const url = id ? `${API_BASE}/discipline/${id}` : `${API_BASE}/discipline/`;
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '保存失败');
+                }
+                
+                closeModal('disciplineModal');
+                loadDiscipline();
+                alert(id ? '修改成功' : '添加成功');
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存';
             }
-            closeModal('disciplineModal');
-            loadDiscipline();
         });
 
         // 表单提交处理 - 违规记录
         document.getElementById('violationForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('violationId').value;
-            const data = {
-                name: document.getElementById('violationName').value,
-                department: document.getElementById('violationDept').value,
-                position: document.getElementById('violationPosition').value,
-                processing_org: document.getElementById('violationOrg').value,
-                violation_type: document.getElementById('violationType').value,
-                violation_date: document.getElementById('violationDate').value,
-                has_influence_period: document.getElementById('violationHasPeriod').value === 'true',
-                influence_end_date: document.getElementById('violationEndDate').value || null,
-                reason: document.getElementById('violationReason').value
-            };
-            if (id) {
-                await fetch(`${API_BASE}/violation/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            } else {
-                await fetch(`${API_BASE}/violation/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+            
+            try {
+                const data = {
+                    name: document.getElementById('violationName').value,
+                    branch_company: document.getElementById('violationBranch').value,
+                    department: document.getElementById('violationDept').value,
+                    position: document.getElementById('violationPosition').value,
+                    processing_org: document.getElementById('violationOrg').value,
+                    violation_type: document.getElementById('violationType').value,
+                    violation_date: document.getElementById('violationDate').value,
+                    has_influence_period: document.getElementById('violationHasPeriod').value === 'true',
+                    influence_end_date: document.getElementById('violationEndDate').value || null,
+                    reason: document.getElementById('violationReason').value
+                };
+                
+                const url = id ? `${API_BASE}/violation/${id}` : `${API_BASE}/violation/`;
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '保存失败');
+                }
+                
+                closeModal('violationModal');
+                loadViolation();
+                alert(id ? '修改成功' : '添加成功');
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存';
             }
-            closeModal('violationModal');
-            loadViolation();
         });
 
         // 表单提交处理 - 信访举报
         document.getElementById('petitionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = document.getElementById('petitionId').value;
-            const data = {
-                name: document.getElementById('petitionName').value,
-                branch_company: document.getElementById('petitionBranch').value,
-                report_date: document.getElementById('petitionDate').value,
-                report_content: document.getElementById('petitionContent').value,
-                verification_result: document.getElementById('petitionResult').value,
-                organization_adoption: document.getElementById('petitionAdoption').value === 'true' ? true : (document.getElementById('petitionAdoption').value === 'false' ? false : null),
-                has_influence_period: document.getElementById('petitionHasPeriod').value === 'true',
-                influence_end_date: document.getElementById('petitionEndDate').value || null,
-                status: document.getElementById('petitionStatus').value
-            };
-            if (id) {
-                await fetch(`${API_BASE}/petition/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            } else {
-                await fetch(`${API_BASE}/petition/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+            
+            try {
+                const orgAdoptionValue = document.getElementById('petitionAdoption').value;
+                const data = {
+                    name: document.getElementById('petitionName').value,
+                    branch_company: document.getElementById('petitionBranch').value,
+                    department: document.getElementById('petitionDept').value,
+                    report_date: document.getElementById('petitionDate').value,
+                    report_content: document.getElementById('petitionContent').value,
+                    verification_result: document.getElementById('petitionResult').value,
+                    organization_adoption: orgAdoptionValue === 'true' ? true : (orgAdoptionValue === 'false' ? false : null),
+                    has_influence_period: document.getElementById('petitionHasPeriod').value === 'true',
+                    influence_end_date: document.getElementById('petitionEndDate').value || null,
+                    status: document.getElementById('petitionStatus').value
+                };
+                
+                const url = id ? `${API_BASE}/petition/${id}` : `${API_BASE}/petition/`;
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '保存失败');
+                }
+                
+                closeModal('petitionModal');
+                loadPetition();
+                alert(id ? '修改成功' : '添加成功');
+            } catch (error) {
+                alert('保存失败: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存';
             }
-            closeModal('petitionModal');
-            loadPetition();
         });
 
         // 表单提交处理 - 模板
         document.getElementById('templateForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log('模板表单提交事件触发');
             const id = document.getElementById('templateId').value;
-            const data = {
-                template_code: document.getElementById('templateCode').value,
-                template_name: document.getElementById('templateName').value,
-                scenario_type: document.getElementById('templateScenario').value,
-                matter_type: document.getElementById('templateMatter').value,
-                template_content: document.getElementById('templateContent').value,
-                priority: parseInt(document.getElementById('templatePriority').value),
-                is_active: document.getElementById('templateActive').value === 'true'
-            };
-            if (id) {
-                await fetch(`${API_BASE}/template/${id}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
-            } else {
-                await fetch(`${API_BASE}/template/`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            console.log('编辑的模板ID:', id);
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (!submitBtn) {
+                console.error('找不到提交按钮');
+                return;
             }
-            closeModal('templateModal');
-            loadTemplates();
+            submitBtn.disabled = true;
+            submitBtn.textContent = '保存中...';
+            
+            try {
+                const data = {
+                    template_code: document.getElementById('templateCode').value,
+                    template_name: document.getElementById('templateName').value,
+                    scenario_type: document.getElementById('templateScenario').value,
+                    matter_type: document.getElementById('templateMatter').value,
+                    template_content: document.getElementById('templateContent').value,
+                    priority: parseInt(document.getElementById('templatePriority').value) || 0,
+                    is_active: document.getElementById('templateActive').value === 'true'
+                };
+                console.log('提交的数据:', data);
+                
+                const url = id ? `${API_BASE}/template/${id}` : `${API_BASE}/template/`;
+                const method = id ? 'PUT' : 'POST';
+                console.log('请求URL:', url, '方法:', method);
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                console.log('响应状态:', response.status);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || '保存失败');
+                }
+                
+                closeModal('templateModal');
+                loadTemplates();
+                alert(id ? '修改成功' : '添加成功');
+            } catch (error) {
+                console.error('保存错误:', error);
+                alert('保存失败: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '保存';
+            }
         });
 
-        // 初始化加载 - 直接显示主内容区（已取消登录验证）
-        function checkLoginStatus() {
-            // 直接显示主内容区，跳过登录验证
-            document.getElementById('sidebarNav').style.display = 'block';
-            document.getElementById('mainContent').style.display = 'block';
-            document.getElementById('loginPage').style.display = 'none';
-            loadDashboard();
+        // 初始化加载 - 检查登录状态
+        async function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+
+            if (isLoggedIn) {
+                // 已登录，显示主内容区
+                document.getElementById('sidebarNav').style.display = 'block';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('loginPage').style.display = 'none';
+                loadDashboard();
+            } else {
+                // 未登录，显示登录页面
+                document.getElementById('sidebarNav').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'block';
+            }
         }
         
         // 登录表单提交
@@ -883,12 +1005,66 @@
             }
         });
         
-        // 退出登录（已取消验证，此功能仅保留界面）
+        // 退出登录
         function logout() {
-            // 由于已取消登录验证，点击退出登录后刷新页面仍会直接进入系统
+            if (!confirm('确定要退出登录吗？')) return;
+            localStorage.removeItem('isLoggedIn');
             location.reload();
         }
-        
+
+        // 加载查询记录（兼容调用）
+        async function loadQueryLogs() {
+            loadQueryLogsTable();
+        }
+
+        // 加载操作日志
+        async function loadOperationLogs() {
+            const data = await fetch(`${API_BASE}/operation/logs?limit=100`).then(r => r.json()).catch(() => []);
+            const tbody = document.querySelector('#operationLogsTable tbody');
+            if (Array.isArray(data) && data.length > 0) {
+                tbody.innerHTML = data.map(item => {
+                    const actionBadge = getActionBadge(item.action);
+                    return `
+                    <tr>
+                        <td>${item.created_at ? new Date(item.created_at).toLocaleString() : '-'}</td>
+                        <td>${item.module || '-'}</td>
+                        <td>${actionBadge}</td>
+                        <td>${item.record_name || '-'}</td>
+                        <td>${item.description || '-'}</td>
+                        <td>${item.operator || '-'}</td>
+                    </tr>
+                `}).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6">暂无操作日志</td></tr>';
+            }
+        }
+
+        // 获取操作类型徽章样式
+        function getActionBadge(action) {
+            const badges = {
+                '创建': '<span class="status-badge" style="background: #d4edda; color: #155724;">创建</span>',
+                '修改': '<span class="status-badge" style="background: #fff3cd; color: #856404;">修改</span>',
+                '删除': '<span class="status-badge" style="background: #f8d7da; color: #721c24;">删除</span>'
+            };
+            return badges[action] || `<span class="status-badge">${action}</span>`;
+        }
+
+        // 清空操作日志
+        async function clearOperationLogs() {
+            if (!confirm('确定要清空所有操作日志吗？此操作不可恢复！')) return;
+            try {
+                const response = await fetch(`${API_BASE}/operation/logs`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert('操作日志已清空');
+                    loadOperationLogs();
+                } else {
+                    alert('清空失败');
+                }
+            } catch (error) {
+                alert('清空出错：' + error.message);
+            }
+        }
+
         // 页面加载时检查登录状态
         checkLoginStatus();
     </script>

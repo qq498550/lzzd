@@ -282,12 +282,18 @@ class IntegrityService:
     def log_query(self, query_name: str, matter_type: str, 
                   template_code: str, conclusion: str, operator: str = "system"):
         """记录查询日志"""
-        log = QueryLog(
-            query_name=query_name,
-            matter_type=matter_type,
-            result_template=template_code,
-            conclusion=conclusion,
-            operator=operator
-        )
-        self.db.add(log)
-        self.db.commit()
+        try:
+            print(f"[DEBUG] 开始记录日志: query_name={query_name}, matter_type={matter_type}, template_code={template_code}")
+            log = QueryLog(
+                query_name=query_name,
+                matter_type=matter_type,
+                result_template=template_code,
+                conclusion=conclusion,
+                operator=operator
+            )
+            self.db.add(log)
+            self.db.commit()
+            print(f"[DEBUG] 日志记录成功!")
+        except Exception as e:
+            self.db.rollback()
+            print(f"[ERROR] 记录查询日志失败: {e}")

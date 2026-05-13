@@ -102,7 +102,7 @@ async def lifespan(app: FastAPI):
     init_db()
     
     # 确保数据目录存在
-    os.makedirs(settings.DATA_DIR, exist_ok=True)
+    os.makedirs(settings.data_dir, exist_ok=True)
     
     # 初始化默认模板数据
     db = SessionLocal()
