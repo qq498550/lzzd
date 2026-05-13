@@ -20,28 +20,20 @@ from app.schemas import (
     QueryRequest, QueryResponse
 )
 from app.services.integrity_service import IntegrityService
+from app.core.config import settings
 
 router = APIRouter()
 
-# 简单的管理员账号验证（实际生产环境应使用更安全的认证方式）
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
-
-# 普通用户存储（实际生产环境应使用数据库存储）
-users_db = {
-    "admin": {"password": "admin123", "role": "admin", "name": "系统管理员"},
-}
 
 def verify_admin_credentials(username: str, password: str) -> bool:
     """验证管理员账号"""
-    user = users_db.get(username)
-    return user is not None and user["password"] == password and user["role"] == "admin"
+    return username == settings.admin_username and password == settings.admin_password
+
 
 def verify_user_credentials(username: str, password: str) -> dict:
     """验证用户账号"""
-    user = users_db.get(username)
-    if user and user["password"] == password:
-        return {"username": username, "role": user["role"], "name": user.get("name", username)}
+    if username == settings.admin_username and password == settings.admin_password:
+        return {"username": username, "role": "admin", "name": "系统管理员"}
     return None
 
 

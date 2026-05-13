@@ -10,7 +10,7 @@ from app.core.config import settings
 
 # 数据库引擎配置
 engine = create_engine(
-    settings.DATABASE_URL, 
+    settings.database_url, 
     connect_args={"check_same_thread": False}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
