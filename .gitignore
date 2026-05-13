@@ -1,29 +1,39 @@
 ```
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Build artifacts
+*.py[cod]
+*$py.class
+*.so
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environments
-venv/
-.venv/
+# Database
+integrity_system/data/integrity.db
+
+# Environment
 .env
 .env.local
 .env.*
-
-# Logs
-*.log
-
-# Coverage reports
-.coverage
-htmlcov/
-coverage/
+.env~*
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
 
 # IDE
 .vscode/
@@ -32,7 +42,11 @@ coverage/
 *.swo
 *.tmp
 
-# OS
-.DS_Store
-Thumbs.db
+# Logs
+*.log
+
+# Coverage
+.coverage
+coverage/
+htmlcov/
 ```

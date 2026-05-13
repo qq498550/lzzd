@@ -116,19 +116,19 @@ async def lifespan(app: FastAPI):
 
 # 创建 FastAPI 应用实例
 app = FastAPI(
-    title=settings.APP_NAME,
-    description=settings.APP_DESCRIPTION,
-    version=settings.APP_VERSION,
+    title=settings.app_name,
+    description=settings.app_description,
+    version=settings.app_version,
     lifespan=lifespan
 )
 
 # 确保静态文件和模板目录存在
-os.makedirs(settings.STATIC_DIR, exist_ok=True)
-os.makedirs(settings.TEMPLATES_DIR, exist_ok=True)
+os.makedirs(settings.static_dir, exist_ok=True)
+os.makedirs(settings.templates_dir, exist_ok=True)
 
 # 挂载静态文件和模板引擎
-app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
-templates = Jinja2Templates(directory=settings.TEMPLATES_DIR)
+app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
+templates = Jinja2Templates(directory=settings.templates_dir)
 
 # 注册 API 路由
 app.include_router(router, prefix="/api")
@@ -150,7 +150,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app,
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug
     )
