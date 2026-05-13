@@ -22,9 +22,9 @@ class IntegrityService:
         # 所以无论matter_type是什么，都返回该人的所有记录
         # matter_type的过滤逻辑在match_template中处理
         
-        # 查询违纪记录
+        # 查询违纪记录 - 使用精确匹配而非模糊查询
         discipline_records = self.db.query(DisciplineRecord).filter(
-            DisciplineRecord.name.ilike(f"%{name}%")
+            DisciplineRecord.name == name
         ).all()
         
         for record in discipline_records:
@@ -47,9 +47,9 @@ class IntegrityService:
                 influence_status=influence_status
             ))
         
-        # 查询违规记录
+        # 查询违规记录 - 使用精确匹配而非模糊查询
         violation_records = self.db.query(ViolationRecord).filter(
-            ViolationRecord.name.ilike(f"%{name}%")
+            ViolationRecord.name == name
         ).all()
         
         for record in violation_records:
@@ -72,9 +72,9 @@ class IntegrityService:
                 influence_status=influence_status
             ))
         
-        # 查询信访举报记录
+        # 查询信访举报记录 - 使用精确匹配而非模糊查询
         petition_records = self.db.query(PetitionReport).filter(
-            PetitionReport.name.ilike(f"%{name}%")
+            PetitionReport.name == name
         ).all()
         
         for record in petition_records:
