@@ -55,7 +55,7 @@
     <div class="home-link"><a href="/">← 返回首页</a></div>
 
     <!-- 侧边栏 -->
-    <div class="sidebar" id="sidebarNav" style="display: none;">
+    <div class="sidebar" id="sidebarNav" style="display: block;">
         <h2>🛡️ 管理后台</h2>
         <div class="nav-item active" onclick="showPage('dashboard')">📊 数据概览</div>
         <div class="nav-item" onclick="showPage('discipline')">📋 违纪记录管理</div>
@@ -64,11 +64,11 @@
         <div class="nav-item" onclick="showPage('template')">📝 答复模板管理</div>
         <div class="nav-item" onclick="showPage('logs')">📜 查询日志</div>
         <div class="nav-item" onclick="showPage('settings')">⚙️ 设置</div>
-        <div class="nav-item" onclick="logout()">🚪 退出登录</div>
+        <!-- 已取消登录验证，退出登录功能已禁用 -->
     </div>
 
-    <!-- 登录页面 -->
-    <div id="loginPage" class="main-content" style="margin-left: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+    <!-- 登录页面已禁用 - 直接显示主内容区 -->
+    <div id="loginPage" class="main-content" style="margin-left: 0; display: none;">
         <div class="card" style="width: 400px;">
             <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">管理员登录</h2>
             <form id="loginForm">
@@ -87,7 +87,7 @@
     </div>
 
     <!-- 主内容区 -->
-    <div class="main-content" id="mainContent" style="display: none;">
+    <div class="main-content" id="mainContent" style="display: block;">
         
         <!-- 数据概览 -->
         <div id="dashboard" class="page-section active">
@@ -809,19 +809,13 @@
             loadTemplates();
         });
 
-        // 初始化加载 - 检查登录状态
+        // 初始化加载 - 直接显示主内容区（已取消登录验证）
         function checkLoginStatus() {
-            const isLoggedIn = localStorage.getItem('isLoggedIn');
-            if (isLoggedIn === 'true') {
-                document.getElementById('sidebarNav').style.display = 'block';
-                document.getElementById('mainContent').style.display = 'block';
-                document.getElementById('loginPage').style.display = 'none';
-                loadDashboard();
-            } else {
-                document.getElementById('sidebarNav').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'none';
-                document.getElementById('loginPage').style.display = 'flex';
-            }
+            // 直接显示主内容区，跳过登录验证
+            document.getElementById('sidebarNav').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('loginPage').style.display = 'none';
+            loadDashboard();
         }
         
         // 登录表单提交
@@ -889,9 +883,9 @@
             }
         });
         
-        // 退出登录
+        // 退出登录（已取消验证，此功能仅保留界面）
         function logout() {
-            localStorage.removeItem('isLoggedIn');
+            // 由于已取消登录验证，点击退出登录后刷新页面仍会直接进入系统
             location.reload();
         }
         
