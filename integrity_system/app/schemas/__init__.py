@@ -22,6 +22,7 @@ class DisciplineRecordCreate(DisciplineRecordBase):
 
 
 class DisciplineRecordUpdate(BaseModel):
+    name: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
     processing_org: Optional[str] = None
@@ -61,6 +62,7 @@ class ViolationRecordCreate(ViolationRecordBase):
 
 
 class ViolationRecordUpdate(BaseModel):
+    name: Optional[str] = None
     department: Optional[str] = None
     position: Optional[str] = None
     processing_org: Optional[str] = None
@@ -99,7 +101,9 @@ class PetitionReportCreate(PetitionReportBase):
 
 
 class PetitionReportUpdate(BaseModel):
+    name: Optional[str] = None
     branch_company: Optional[str] = None
+    report_date: Optional[date] = None
     report_content: Optional[str] = None
     verification_result: Optional[str] = None
     organization_adoption: Optional[bool] = None
@@ -133,6 +137,7 @@ class AnswerTemplateCreate(AnswerTemplateBase):
 
 
 class AnswerTemplateUpdate(BaseModel):
+    template_code: Optional[str] = None
     template_name: Optional[str] = None
     scenario_type: Optional[str] = None
     matter_type: Optional[str] = None
