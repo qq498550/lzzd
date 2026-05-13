@@ -327,7 +327,18 @@ def get_query_logs(limit: int = 100, db: Session = Depends(get_db)):
     logs = db.query(QueryLog).order_by(
         QueryLog.query_time.desc()
     ).limit(limit).all()
-    return logs
+    return [
+        {
+            "id": log.id,
+            "query_name": log.query_name,
+            "matter_type": log.matter_type,
+            "result_template": log.result_template,
+            "conclusion": log.conclusion,
+            "query_time": log.query_time.isoformat() if log.query_time else None,
+            "operator": log.operator
+        }
+        for log in logs
+    ]
 
 
 @router.get("/query/{name}/history", tags=["智能查询"])
@@ -338,7 +349,18 @@ def get_query_history(name: str, limit: int = 10, db: Session = Depends(get_db))
     logs = db.query(QueryLog).filter(
         QueryLog.query_name == name
     ).order_by(QueryLog.query_time.desc()).limit(limit).all()
-    return logs
+    return [
+        {
+            "id": log.id,
+            "query_name": log.query_name,
+            "matter_type": log.matter_type,
+            "result_template": log.result_template,
+            "conclusion": log.conclusion,
+            "query_time": log.query_time.isoformat() if log.query_time else None,
+            "operator": log.operator
+        }
+        for log in logs
+    ]
 
 
 # ==================== 管理员登录验证 ====================
