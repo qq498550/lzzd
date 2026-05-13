@@ -61,11 +61,14 @@ class PetitionReport(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), index=True, nullable=False)
+    branch_company = Column(String(200))  # 分公司
     report_date = Column(Date)
     report_content = Column(Text)
     verification_result = Column(String(200))  # 核查结果
     organization_adoption = Column(Boolean)  # 组织是否采信
-    status = Column(String(50), default="processing")  # processing/completed/closed
+    has_influence_period = Column(Boolean, default=False)  # 有无影响期
+    influence_end_date = Column(Date)  # 影响期截止日期
+    status = Column(String(50), default="processing")  # processing/completed/influence_period_ended
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
