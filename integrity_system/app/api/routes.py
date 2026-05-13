@@ -299,6 +299,6 @@ def get_query_history(name: str, limit: int = 10, db: Session = Depends(get_db))
     """获取某人的查询历史"""
     from app.models.database import QueryLog
     logs = db.query(QueryLog).filter(
-        QueryLog.query_name.ilike(f"%{name}%")
+        QueryLog.query_name == name
     ).order_by(QueryLog.query_time.desc()).limit(limit).all()
     return logs
