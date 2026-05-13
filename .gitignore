@@ -1,1 +1,1 @@
-Nothing needs to be added to the .gitignore file based on the provided changes. The only modified file is a template HTML file (`integrity_system/app/templates/admin.html`), which is a source file that should not be ignored.
+Nothing needs to be added to the .gitignore file based on the provided changes. The only modified file is a template file (admin.html), which is a source file that should not be ignored.
