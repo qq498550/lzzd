@@ -137,10 +137,10 @@
             <div class="page-header">
                 <h1>违纪记录管理</h1>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-success" onclick="downloadImportTemplate('discipline')">⬇️ 下载模板</button>
                     <button class="btn btn-primary" onclick="exportData('discipline')">⬆️ 导出</button>
                     <label class="btn btn-warning" style="cursor: pointer;">
-                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'discipline')" style="display: none;">
+                        ⬆️ 导入<input type="file" accept=".csv,.xlsx" onchange="importData(this, 'discipline')" style="display: none;">
                     </label>
                     <button class="btn btn-primary" onclick="openModal('disciplineModal')">+ 新增记录</button>
                 </div>
@@ -158,10 +158,10 @@
             <div class="page-header">
                 <h1>违规记录管理</h1>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-success" onclick="downloadImportTemplate('violation')">⬇️ 下载模板</button>
                     <button class="btn btn-primary" onclick="exportData('violation')">⬆️ 导出</button>
                     <label class="btn btn-warning" style="cursor: pointer;">
-                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'violation')" style="display: none;">
+                        ⬆️ 导入<input type="file" accept=".csv,.xlsx" onchange="importData(this, 'violation')" style="display: none;">
                     </label>
                     <button class="btn btn-primary" onclick="openModal('violationModal')">+ 新增记录</button>
                 </div>
@@ -179,10 +179,10 @@
             <div class="page-header">
                 <h1>信访举报管理</h1>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-success" onclick="downloadImportTemplate('petition')">⬇️ 下载模板</button>
                     <button class="btn btn-primary" onclick="exportData('petition')">⬆️ 导出</button>
                     <label class="btn btn-warning" style="cursor: pointer;">
-                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'petition')" style="display: none;">
+                        ⬆️ 导入<input type="file" accept=".csv,.xlsx" onchange="importData(this, 'petition')" style="display: none;">
                     </label>
                     <button class="btn btn-primary" onclick="openModal('petitionModal')">+ 新增举报</button>
                 </div>
@@ -720,9 +720,14 @@
             input.value = '';
         }
 
-        // 下载导入模板
-        function downloadTemplate() {
-            window.open(`${API_BASE}/template/download`, '_blank');
+        // 下载导入模板（Excel格式）
+        function downloadImportTemplate(type) {
+            const templateMap = {
+                'discipline': 'discipline_template.xlsx',
+                'violation': 'violation_template.xlsx',
+                'petition': 'petition_template.xlsx'
+            };
+            window.open(`/static/${templateMap[type]}`, '_blank');
         }
 
         // 表单提交处理 - 违纪记录

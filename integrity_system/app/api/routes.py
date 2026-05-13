@@ -611,133 +611,285 @@ def download_import_template():
 
 @router.post("/import/discipline", tags=["数据导入导出"])
 async def import_discipline_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """导入违纪记录"""
+    """导入违纪记录（支持CSV和Excel格式）"""
     from app.models.database import DisciplineRecord
-    
-    contents = await file.read()
-    lines = contents.decode('utf-8').split('\n')
-    
-    count = 0
-    for i, line in enumerate(lines[1:], start=2):  # 跳过表头
-        if not line.strip():
-            continue
-        try:
-            values = line.split(',')
-            if len(values) < 6:
+
+    filename = file.filename.lower()
+
+    if filename.endswith('.xlsx'):
+        # Excel格式
+        import io
+        from openpyxl import load_workbook
+
+        contents = await file.read()
+        wb = load_workbook(io.BytesIO(contents))
+        ws = wb.active
+
+        count = 0
+        for row_idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):  # 跳过标题和表头
+            if not row[0]:
                 continue
-            
-            has_period = values[6].strip().lower() == 'true' if len(values) > 6 else True
-            influence_end = None
-            if len(values) > 7 and values[7].strip():
-                try:
-                    influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
-                except:
-                    pass
-            
-            record = DisciplineRecord(
-                name=values[0].strip(),
-                department=values[1].strip() if len(values) > 1 and values[1].strip() else None,
-                position=values[2].strip() if len(values) > 2 and values[2].strip() else None,
-                processing_org=values[3].strip() if len(values) > 3 and values[3].strip() else None,
-                accountability_type=values[4].strip(),
-                accountability_date=datetime.strptime(values[5].strip(), '%Y-%m-%d').date(),
-                has_influence_period=has_period,
-                influence_end_date=influence_end,
-                reason=values[8].strip() if len(values) > 8 and values[8].strip() else '',
-                status=values[9].strip() if len(values) > 9 and values[9].strip() else 'completed'
-            )
-            db.add(record)
-            count += 1
-        except Exception as e:
-            continue
-    
+            try:
+                has_period = str(row[7]).strip().lower() in ['true', '有'] if row[7] else True
+                influence_end = None
+                if row[8] and str(row[8]).strip():
+                    try:
+                        influence_end = datetime.strptime(str(row[8]).strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = DisciplineRecord(
+                    name=str(row[0]).strip(),
+                    branch_company=str(row[1]).strip() if row[1] else None,
+                    department=str(row[2]).strip() if row[2] else None,
+                    position=str(row[3]).strip() if row[3] else None,
+                    processing_org=str(row[4]).strip() if row[4] else None,
+                    accountability_type=str(row[5]).strip(),
+                    accountability_date=datetime.strptime(str(row[6]).strip(), '%Y-%m-%d').date(),
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    reason=str(row[9]).strip() if row[9] else '',
+                    status=str(row[10]).strip() if row[10] else 'completed'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                print(f"[导入违纪] 第{row_idx}行处理失败: {e}")
+                continue
+    else:
+        # CSV格式
+        contents = await file.read()
+        lines = contents.decode('utf-8').split('\n')
+
+        count = 0
+        for i, line in enumerate(lines[1:], start=2):
+            if not line.strip():
+                continue
+            try:
+                values = line.split(',')
+                if len(values) < 6:
+                    continue
+
+                has_period = values[6].strip().lower() in ['true', '有'] if len(values) > 6 else True
+                influence_end = None
+                if len(values) > 7 and values[7].strip():
+                    try:
+                        influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = DisciplineRecord(
+                    name=values[0].strip(),
+                    branch_company=values[1].strip() if len(values) > 1 and values[1].strip() else None,
+                    department=values[2].strip() if len(values) > 2 and values[2].strip() else None,
+                    position=values[3].strip() if len(values) > 3 and values[3].strip() else None,
+                    processing_org=values[4].strip() if len(values) > 4 and values[4].strip() else None,
+                    accountability_type=values[5].strip(),
+                    accountability_date=datetime.strptime(values[6].strip(), '%Y-%m-%d').date(),
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
+                    status=values[10].strip() if len(values) > 10 and values[10].strip() else 'completed'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                continue
+
     db.commit()
     return {"success": True, "message": f"成功导入 {count} 条违纪记录"}
 
 
 @router.post("/import/violation", tags=["数据导入导出"])
 async def import_violation_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """导入违规记录"""
+    """导入违规记录（支持CSV和Excel格式）"""
     from app.models.database import ViolationRecord
-    
-    contents = await file.read()
-    lines = contents.decode('utf-8').split('\n')
-    
-    count = 0
-    for i, line in enumerate(lines[1:], start=2):
-        if not line.strip():
-            continue
-        try:
-            values = line.split(',')
-            if len(values) < 6:
+
+    filename = file.filename.lower()
+
+    if filename.endswith('.xlsx'):
+        # Excel格式
+        import io
+        from openpyxl import load_workbook
+
+        contents = await file.read()
+        wb = load_workbook(io.BytesIO(contents))
+        ws = wb.active
+
+        count = 0
+        for row_idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+            if not row[0]:
                 continue
-            
-            has_period = values[6].strip().lower() == 'true' if len(values) > 6 else True
-            influence_end = None
-            if len(values) > 7 and values[7].strip():
-                try:
-                    influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
-                except:
-                    pass
-            
-            record = ViolationRecord(
-                name=values[0].strip(),
-                department=values[1].strip() if len(values) > 1 and values[1].strip() else None,
-                position=values[2].strip() if len(values) > 2 and values[2].strip() else None,
-                processing_org=values[3].strip() if len(values) > 3 and values[3].strip() else None,
-                violation_type=values[4].strip(),
-                violation_date=datetime.strptime(values[5].strip(), '%Y-%m-%d').date(),
-                has_influence_period=has_period,
-                influence_end_date=influence_end,
-                reason=values[8].strip() if len(values) > 8 and values[8].strip() else '',
-                status=values[9].strip() if len(values) > 9 and values[9].strip() else 'completed'
-            )
-            db.add(record)
-            count += 1
-        except Exception as e:
-            continue
-    
+            try:
+                has_period = str(row[7]).strip().lower() in ['true', '有'] if row[7] else True
+                influence_end = None
+                if row[8] and str(row[8]).strip():
+                    try:
+                        influence_end = datetime.strptime(str(row[8]).strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = ViolationRecord(
+                    name=str(row[0]).strip(),
+                    branch_company=str(row[1]).strip() if row[1] else None,
+                    department=str(row[2]).strip() if row[2] else None,
+                    position=str(row[3]).strip() if row[3] else None,
+                    processing_org=str(row[4]).strip() if row[4] else None,
+                    violation_type=str(row[5]).strip(),
+                    violation_date=datetime.strptime(str(row[6]).strip(), '%Y-%m-%d').date(),
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    reason=str(row[9]).strip() if row[9] else '',
+                    status=str(row[10]).strip() if row[10] else 'completed'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                print(f"[导入违规] 第{row_idx}行处理失败: {e}")
+                continue
+    else:
+        # CSV格式
+        contents = await file.read()
+        lines = contents.decode('utf-8').split('\n')
+
+        count = 0
+        for i, line in enumerate(lines[1:], start=2):
+            if not line.strip():
+                continue
+            try:
+                values = line.split(',')
+                if len(values) < 6:
+                    continue
+
+                has_period = values[6].strip().lower() in ['true', '有'] if len(values) > 6 else True
+                influence_end = None
+                if len(values) > 7 and values[7].strip():
+                    try:
+                        influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = ViolationRecord(
+                    name=values[0].strip(),
+                    branch_company=values[1].strip() if len(values) > 1 and values[1].strip() else None,
+                    department=values[2].strip() if len(values) > 2 and values[2].strip() else None,
+                    position=values[3].strip() if len(values) > 3 and values[3].strip() else None,
+                    processing_org=values[4].strip() if len(values) > 4 and values[4].strip() else None,
+                    violation_type=values[5].strip(),
+                    violation_date=datetime.strptime(values[6].strip(), '%Y-%m-%d').date(),
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
+                    status=values[10].strip() if len(values) > 10 and values[10].strip() else 'completed'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                continue
+
     db.commit()
     return {"success": True, "message": f"成功导入 {count} 条违规记录"}
 
 
 @router.post("/import/petition", tags=["数据导入导出"])
 async def import_petition_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """导入信访举报记录"""
+    """导入信访举报记录（支持CSV和Excel格式）"""
     from app.models.database import PetitionReport
-    
-    contents = await file.read()
-    lines = contents.decode('utf-8').split('\n')
-    
-    count = 0
-    for i, line in enumerate(lines[1:], start=2):
-        if not line.strip():
-            continue
-        try:
-            values = line.split(',')
-            if len(values) < 3:
+
+    filename = file.filename.lower()
+
+    if filename.endswith('.xlsx'):
+        # Excel格式
+        import io
+        from openpyxl import load_workbook
+
+        contents = await file.read()
+        wb = load_workbook(io.BytesIO(contents))
+        ws = wb.active
+
+        count = 0
+        for row_idx, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+            if not row[0]:
                 continue
-            
-            org_adoption = None
-            if len(values) > 4 and values[4].strip():
-                if values[4].strip().lower() == 'true':
-                    org_adoption = True
-                elif values[4].strip().lower() == 'false':
-                    org_adoption = False
-            
-            record = PetitionReport(
-                name=values[0].strip(),
-                report_date=datetime.strptime(values[1].strip(), '%Y-%m-%d').date(),
-                report_content=values[2].strip() if len(values) > 2 else '',
-                verification_result=values[3].strip() if len(values) > 3 and values[3].strip() else None,
-                organization_adoption=org_adoption,
-                status=values[5].strip() if len(values) > 5 and values[5].strip() else 'processing'
-            )
-            db.add(record)
-            count += 1
-        except Exception as e:
-            continue
-    
+            try:
+                org_adoption = None
+                if row[6] and str(row[6]).strip():
+                    if str(row[6]).strip().lower() in ['true', '是']:
+                        org_adoption = True
+                    elif str(row[6]).strip().lower() in ['false', '否']:
+                        org_adoption = False
+
+                has_period = str(row[7]).strip().lower() in ['true', '有'] if row[7] else False
+                influence_end = None
+                if row[8] and str(row[8]).strip():
+                    try:
+                        influence_end = datetime.strptime(str(row[8]).strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = PetitionReport(
+                    name=str(row[0]).strip(),
+                    branch_company=str(row[1]).strip() if row[1] else None,
+                    department=str(row[2]).strip() if row[2] else None,
+                    report_date=datetime.strptime(str(row[3]).strip(), '%Y-%m-%d').date(),
+                    report_content=str(row[4]).strip() if row[4] else '',
+                    verification_result=str(row[5]).strip() if row[5] else None,
+                    organization_adoption=org_adoption,
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    status=str(row[9]).strip() if row[9] else 'processing'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                print(f"[导入信访] 第{row_idx}行处理失败: {e}")
+                continue
+    else:
+        # CSV格式
+        contents = await file.read()
+        lines = contents.decode('utf-8').split('\n')
+
+        count = 0
+        for i, line in enumerate(lines[1:], start=2):
+            if not line.strip():
+                continue
+            try:
+                values = line.split(',')
+                if len(values) < 3:
+                    continue
+
+                org_adoption = None
+                if len(values) > 4 and values[4].strip():
+                    if values[4].strip().lower() in ['true', '是']:
+                        org_adoption = True
+                    elif values[4].strip().lower() in ['false', '否']:
+                        org_adoption = False
+
+                has_period = len(values) > 6 and values[6].strip().lower() in ['true', '有']
+                influence_end = None
+                if len(values) > 7 and values[7].strip():
+                    try:
+                        influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
+                    except:
+                        pass
+
+                record = PetitionReport(
+                    name=values[0].strip(),
+                    branch_company=values[1].strip() if len(values) > 1 and values[1].strip() else None,
+                    department=values[2].strip() if len(values) > 2 and values[2].strip() else None,
+                    report_date=datetime.strptime(values[3].strip(), '%Y-%m-%d').date(),
+                    report_content=values[4].strip() if len(values) > 4 else '',
+                    verification_result=values[5].strip() if len(values) > 5 and values[5].strip() else None,
+                    organization_adoption=org_adoption,
+                    has_influence_period=has_period,
+                    influence_end_date=influence_end,
+                    status=values[9].strip() if len(values) > 9 and values[9].strip() else 'processing'
+                )
+                db.add(record)
+                count += 1
+            except Exception as e:
+                continue
+
     db.commit()
     return {"success": True, "message": f"成功导入 {count} 条信访举报记录"}
 
