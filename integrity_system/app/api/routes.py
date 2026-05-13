@@ -1,10 +1,14 @@
 """
 廉政意见智答系统 - API 路由模块
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Form, UploadFile, File
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
+import json
+import io
+import csv
 
 from app.models.database import get_db
 from app.schemas import (
@@ -17,6 +21,14 @@ from app.schemas import (
 from app.services.integrity_service import IntegrityService
 
 router = APIRouter()
+
+# 简单的管理员账号验证（实际生产环境应使用更安全的认证方式）
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
+
+def verify_admin_credentials(username: str, password: str) -> bool:
+    """验证管理员账号"""
+    return username == ADMIN_USERNAME and password == ADMIN_PASSWORD
 
 
 # ==================== 违纪记录管理 ====================
@@ -294,11 +306,306 @@ def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/query/logs", response_model=List[dict], tags=["智能查询"])
+def get_query_logs(limit: int = 100, db: Session = Depends(get_db)):
+    """获取所有查询日志"""
+    from app.models.database import QueryLog
+    logs = db.query(QueryLog).order_by(
+        QueryLog.query_time.desc()
+    ).limit(limit).all()
+    return logs
+
+
 @router.get("/query/{name}/history", tags=["智能查询"])
 def get_query_history(name: str, limit: int = 10, db: Session = Depends(get_db)):
     """获取某人的查询历史"""
     from app.models.database import QueryLog
+    # 使用精确匹配查询姓名
     logs = db.query(QueryLog).filter(
         QueryLog.query_name == name
     ).order_by(QueryLog.query_time.desc()).limit(limit).all()
     return logs
+
+
+# ==================== 管理员登录验证 ====================
+@router.post("/admin/login", tags=["管理员"])
+def admin_login(username: str = Form(...), password: str = Form(...)):
+    """管理员登录验证"""
+    if verify_admin_credentials(username, password):
+        return {"success": True, "message": "登录成功"}
+    else:
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+
+
+# ==================== 数据导入导出 ====================
+@router.get("/export/discipline", tags=["数据导入导出"])
+def export_discipline_records(db: Session = Depends(get_db)):
+    """导出违纪记录为CSV"""
+    from app.models.database import DisciplineRecord
+    records = db.query(DisciplineRecord).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', '姓名', '部门', '职务', '处理机构', '问责情况', '问责时间', 
+                     '有无影响期', '影响期截止', '事由', '状态'])
+    
+    for r in records:
+        writer.writerow([
+            r.id, r.name, r.department or '', r.position or '', r.processing_org or '',
+            r.accountability_type, r.accountability_date, 
+            '有' if r.has_influence_period else '无', r.influence_end_date or '',
+            r.reason or '', r.status
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=违纪记录.csv"}
+    )
+
+
+@router.get("/export/violation", tags=["数据导入导出"])
+def export_violation_records(db: Session = Depends(get_db)):
+    """导出违规记录为CSV"""
+    from app.models.database import ViolationRecord
+    records = db.query(ViolationRecord).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', '姓名', '部门', '职务', '处理机构', '问责类型', '问责时间', 
+                     '有无影响期', '影响期截止', '事由', '状态'])
+    
+    for r in records:
+        writer.writerow([
+            r.id, r.name, r.department or '', r.position or '', r.processing_org or '',
+            r.violation_type, r.violation_date,
+            '有' if r.has_influence_period else '无', r.influence_end_date or '',
+            r.reason or '', r.status
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=违规记录.csv"}
+    )
+
+
+@router.get("/export/petition", tags=["数据导入导出"])
+def export_petition_records(db: Session = Depends(get_db)):
+    """导出信访举报记录为CSV"""
+    from app.models.database import PetitionReport
+    records = db.query(PetitionReport).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', '姓名', '举报日期', '举报内容', '核查结果', '组织采信', '状态'])
+    
+    for r in records:
+        writer.writerow([
+            r.id, r.name, r.report_date, r.report_content or '',
+            r.verification_result or '', 
+            '是' if r.organization_adoption else ('否' if r.organization_adoption is False else ''),
+            r.status
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=信访举报记录.csv"}
+    )
+
+
+@router.get("/export/template", tags=["数据导入导出"])
+def export_templates(db: Session = Depends(get_db)):
+    """导出答复模板为CSV"""
+    from app.models.database import AnswerTemplate
+    records = db.query(AnswerTemplate).all()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID', '模板编号', '模板名称', '适用场景', '事项类型', '模板内容', '优先级', '是否启用'])
+    
+    for r in records:
+        writer.writerow([
+            r.id, r.template_code, r.template_name, r.scenario_type, r.matter_type,
+            r.template_content, r.priority, '是' if r.is_active else '否'
+        ])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=答复模板.csv"}
+    )
+
+
+@router.get("/template/download", tags=["数据导入导出"])
+def download_import_template():
+    """下载导入模板"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # 违纪记录模板
+    writer.writerow(['=== 违纪记录导入模板 ==='])
+    writer.writerow(['姓名', '部门', '职务', '处理机构', '问责情况', '问责时间 (YYYY-MM-DD)', 
+                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (completed/processing)'])
+    writer.writerow(['张三', 'XX部门', 'XX职务', 'XX纪委', '党内警告', '2023-01-15', 
+                     'true', '2024-01-15', '违反工作纪律', 'completed'])
+    writer.writerow([])
+    
+    # 违规记录模板
+    writer.writerow(['=== 违规记录导入模板 ==='])
+    writer.writerow(['姓名', '部门', '职务', '处理机构', '问责类型', '问责时间 (YYYY-MM-DD)', 
+                     '有无影响期 (true/false)', '影响期截止日期 (YYYY-MM-DD)', '事由', '状态 (completed/processing)'])
+    writer.writerow(['李四', 'XX部门', 'XX职务', 'XX纪委', '政务记过', '2023-02-20', 
+                     'true', '2024-02-20', '违反廉洁纪律', 'completed'])
+    writer.writerow([])
+    
+    # 信访举报模板
+    writer.writerow(['=== 信访举报导入模板 ==='])
+    writer.writerow(['姓名', '举报日期 (YYYY-MM-DD)', '举报内容', '核查结果', '组织采信 (true/false/null)', '状态 (processing/completed/closed)'])
+    writer.writerow(['王五', '2023-03-10', '反映收受礼金问题', '未发现相关证据', 'false', 'completed'])
+    writer.writerow([])
+    
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=导入模板.csv"}
+    )
+
+
+@router.post("/import/discipline", tags=["数据导入导出"])
+async def import_discipline_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """导入违纪记录"""
+    from app.models.database import DisciplineRecord
+    
+    contents = await file.read()
+    lines = contents.decode('utf-8').split('\n')
+    
+    count = 0
+    for i, line in enumerate(lines[1:], start=2):  # 跳过表头
+        if not line.strip():
+            continue
+        try:
+            values = line.split(',')
+            if len(values) < 6:
+                continue
+            
+            has_period = values[6].strip().lower() == 'true' if len(values) > 6 else True
+            influence_end = None
+            if len(values) > 7 and values[7].strip():
+                try:
+                    influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
+                except:
+                    pass
+            
+            record = DisciplineRecord(
+                name=values[0].strip(),
+                department=values[1].strip() if len(values) > 1 and values[1].strip() else None,
+                position=values[2].strip() if len(values) > 2 and values[2].strip() else None,
+                processing_org=values[3].strip() if len(values) > 3 and values[3].strip() else None,
+                accountability_type=values[4].strip(),
+                accountability_date=datetime.strptime(values[5].strip(), '%Y-%m-%d').date(),
+                has_influence_period=has_period,
+                influence_end_date=influence_end,
+                reason=values[8].strip() if len(values) > 8 and values[8].strip() else '',
+                status=values[9].strip() if len(values) > 9 and values[9].strip() else 'completed'
+            )
+            db.add(record)
+            count += 1
+        except Exception as e:
+            continue
+    
+    db.commit()
+    return {"success": True, "message": f"成功导入 {count} 条违纪记录"}
+
+
+@router.post("/import/violation", tags=["数据导入导出"])
+async def import_violation_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """导入违规记录"""
+    from app.models.database import ViolationRecord
+    
+    contents = await file.read()
+    lines = contents.decode('utf-8').split('\n')
+    
+    count = 0
+    for i, line in enumerate(lines[1:], start=2):
+        if not line.strip():
+            continue
+        try:
+            values = line.split(',')
+            if len(values) < 6:
+                continue
+            
+            has_period = values[6].strip().lower() == 'true' if len(values) > 6 else True
+            influence_end = None
+            if len(values) > 7 and values[7].strip():
+                try:
+                    influence_end = datetime.strptime(values[7].strip(), '%Y-%m-%d').date()
+                except:
+                    pass
+            
+            record = ViolationRecord(
+                name=values[0].strip(),
+                department=values[1].strip() if len(values) > 1 and values[1].strip() else None,
+                position=values[2].strip() if len(values) > 2 and values[2].strip() else None,
+                processing_org=values[3].strip() if len(values) > 3 and values[3].strip() else None,
+                violation_type=values[4].strip(),
+                violation_date=datetime.strptime(values[5].strip(), '%Y-%m-%d').date(),
+                has_influence_period=has_period,
+                influence_end_date=influence_end,
+                reason=values[8].strip() if len(values) > 8 and values[8].strip() else '',
+                status=values[9].strip() if len(values) > 9 and values[9].strip() else 'completed'
+            )
+            db.add(record)
+            count += 1
+        except Exception as e:
+            continue
+    
+    db.commit()
+    return {"success": True, "message": f"成功导入 {count} 条违规记录"}
+
+
+@router.post("/import/petition", tags=["数据导入导出"])
+async def import_petition_records(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """导入信访举报记录"""
+    from app.models.database import PetitionReport
+    
+    contents = await file.read()
+    lines = contents.decode('utf-8').split('\n')
+    
+    count = 0
+    for i, line in enumerate(lines[1:], start=2):
+        if not line.strip():
+            continue
+        try:
+            values = line.split(',')
+            if len(values) < 3:
+                continue
+            
+            org_adoption = None
+            if len(values) > 4 and values[4].strip():
+                if values[4].strip().lower() == 'true':
+                    org_adoption = True
+                elif values[4].strip().lower() == 'false':
+                    org_adoption = False
+            
+            record = PetitionReport(
+                name=values[0].strip(),
+                report_date=datetime.strptime(values[1].strip(), '%Y-%m-%d').date(),
+                report_content=values[2].strip() if len(values) > 2 else '',
+                verification_result=values[3].strip() if len(values) > 3 and values[3].strip() else None,
+                organization_adoption=org_adoption,
+                status=values[5].strip() if len(values) > 5 and values[5].strip() else 'processing'
+            )
+            db.add(record)
+            count += 1
+        except Exception as e:
+            continue
+    
+    db.commit()
+    return {"success": True, "message": f"成功导入 {count} 条信访举报记录"}

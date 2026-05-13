@@ -53,7 +53,7 @@
     <div class="home-link"><a href="/">← 返回首页</a></div>
 
     <!-- 侧边栏 -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebarNav" style="display: none;">
         <h2>🛡️ 管理后台</h2>
         <div class="nav-item active" onclick="showPage('dashboard')">📊 数据概览</div>
         <div class="nav-item" onclick="showPage('discipline')">📋 违纪记录管理</div>
@@ -61,10 +61,30 @@
         <div class="nav-item" onclick="showPage('petition')">✉️ 信访举报管理</div>
         <div class="nav-item" onclick="showPage('template')">📝 答复模板管理</div>
         <div class="nav-item" onclick="showPage('logs')">📜 查询日志</div>
+        <div class="nav-item" onclick="logout()">🚪 退出登录</div>
+    </div>
+
+    <!-- 登录页面 -->
+    <div id="loginPage" class="main-content" style="margin-left: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+        <div class="card" style="width: 400px;">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">管理员登录</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginUsername">用户名</label>
+                    <input type="text" id="loginUsername" required placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">密码</label>
+                    <input type="password" id="loginPassword" required placeholder="请输入密码">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">登录</button>
+            </form>
+            <p id="loginError" style="color: #dc3545; text-align: center; margin-top: 15px; display: none;"></p>
+        </div>
     </div>
 
     <!-- 主内容区 -->
-    <div class="main-content">
+    <div class="main-content" id="mainContent" style="display: none;">
         
         <!-- 数据概览 -->
         <div id="dashboard" class="page-section active">
@@ -106,7 +126,14 @@
         <div id="discipline" class="page-section">
             <div class="page-header">
                 <h1>违纪记录管理</h1>
-                <button class="btn btn-primary" onclick="openModal('disciplineModal')">+ 新增记录</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-primary" onclick="exportData('discipline')">⬆️ 导出</button>
+                    <label class="btn btn-warning" style="cursor: pointer;">
+                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'discipline')" style="display: none;">
+                    </label>
+                    <button class="btn btn-primary" onclick="openModal('disciplineModal')">+ 新增记录</button>
+                </div>
             </div>
             <div class="card">
                 <table class="data-table" id="disciplineTable">
@@ -120,7 +147,14 @@
         <div id="violation" class="page-section">
             <div class="page-header">
                 <h1>违规记录管理</h1>
-                <button class="btn btn-primary" onclick="openModal('violationModal')">+ 新增记录</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-primary" onclick="exportData('violation')">⬆️ 导出</button>
+                    <label class="btn btn-warning" style="cursor: pointer;">
+                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'violation')" style="display: none;">
+                    </label>
+                    <button class="btn btn-primary" onclick="openModal('violationModal')">+ 新增记录</button>
+                </div>
             </div>
             <div class="card">
                 <table class="data-table" id="violationTable">
@@ -134,7 +168,14 @@
         <div id="petition" class="page-section">
             <div class="page-header">
                 <h1>信访举报管理</h1>
-                <button class="btn btn-primary" onclick="openModal('petitionModal')">+ 新增举报</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="downloadTemplate()">⬇️ 下载模板</button>
+                    <button class="btn btn-primary" onclick="exportData('petition')">⬆️ 导出</button>
+                    <label class="btn btn-warning" style="cursor: pointer;">
+                        ⬇️ 导入<input type="file" accept=".csv" onchange="importData(this, 'petition')" style="display: none;">
+                    </label>
+                    <button class="btn btn-primary" onclick="openModal('petitionModal')">+ 新增举报</button>
+                </div>
             </div>
             <div class="card">
                 <table class="data-table" id="petitionTable">
@@ -381,7 +422,7 @@
                 fetch(`${API_BASE}/violation/?limit=1000`).then(r => r.json()),
                 fetch(`${API_BASE}/petition/?limit=1000`).then(r => r.json()),
                 fetch(`${API_BASE}/template/?limit=1000`).then(r => r.json()),
-                fetch(`${API_BASE}/query/any/history?limit=10`).catch(() => [])
+                fetch(`${API_BASE}/query/logs?limit=10`).catch(() => [])
             ]);
             
             document.getElementById('statDiscipline').textContent = discipline.length;
@@ -391,15 +432,19 @@
             document.getElementById('statQueries').textContent = logs.length || 0;
             
             const tbody = document.querySelector('#recentQueriesTable tbody');
-            tbody.innerHTML = logs.map(l => `
-                <tr>
-                    <td>${new Date(l.query_time).toLocaleString()}</td>
-                    <td>${l.query_name}</td>
-                    <td>${l.matter_type}</td>
-                    <td>${l.result_template}</td>
-                    <td>${l.conclusion}</td>
-                </tr>
-            `).join('');
+            if (logs && logs.length > 0) {
+                tbody.innerHTML = logs.map(l => `
+                    <tr>
+                        <td>${new Date(l.query_time).toLocaleString()}</td>
+                        <td>${l.query_name}</td>
+                        <td>${l.matter_type}</td>
+                        <td>${l.result_template}</td>
+                        <td>${l.conclusion}</td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5">暂无查询记录</td></tr>';
+            }
         }
 
         // 加载违纪记录
@@ -485,19 +530,24 @@
         // 加载日志
         async function loadLogs() {
             try {
-                const data = await fetch(`${API_BASE}/query/any/history?limit=100`).then(r => r.json());
+                const data = await fetch(`${API_BASE}/query/logs?limit=100`).then(r => r.json());
                 const tbody = document.querySelector('#logsTable tbody');
-                tbody.innerHTML = data.map(item => `
-                    <tr>
-                        <td>${new Date(item.query_time).toLocaleString()}</td>
-                        <td>${item.query_name}</td>
-                        <td>${item.matter_type}</td>
-                        <td>${item.result_template}</td>
-                        <td>${item.conclusion}</td>
-                        <td>${item.operator || '-'}</td>
-                    </tr>
-                `).join('');
+                if (data && data.length > 0) {
+                    tbody.innerHTML = data.map(item => `
+                        <tr>
+                            <td>${new Date(item.query_time).toLocaleString()}</td>
+                            <td>${item.query_name}</td>
+                            <td>${item.matter_type}</td>
+                            <td>${item.result_template}</td>
+                            <td>${item.conclusion}</td>
+                            <td>${item.operator || '-'}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6">暂无日志</td></tr>';
+                }
             } catch(e) {
+                console.error('加载日志失败:', e);
                 document.querySelector('#logsTable tbody').innerHTML = '<tr><td colspan="6">暂无日志</td></tr>';
             }
         }
@@ -507,6 +557,52 @@
             if (!confirm('确定要删除这条记录吗？')) return;
             await fetch(`${API_BASE}/${type}/${id}`, { method: 'DELETE' });
             loadData(type === 'discipline' ? 'discipline' : type === 'violation' ? 'violation' : type === 'petition' ? 'petition' : 'template');
+        }
+
+        // 导出数据
+        function exportData(type) {
+            const typeMap = {
+                'discipline': '违纪记录',
+                'violation': '违规记录',
+                'petition': '信访举报',
+                'template': '答复模板'
+            };
+            window.open(`${API_BASE}/export/${type}`, '_blank');
+        }
+
+        // 导入数据
+        async function importData(input, type) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_BASE}/import/${type}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(result.message || '导入成功');
+                    loadData(type);
+                } else {
+                    const error = await response.json();
+                    alert('导入失败：' + (error.detail || '未知错误'));
+                }
+            } catch (error) {
+                alert('导入出错：' + error.message);
+            }
+            
+            // 清空文件输入，允许重复上传同一文件
+            input.value = '';
+        }
+
+        // 下载导入模板
+        function downloadTemplate() {
+            window.open(`${API_BASE}/template/download`, '_blank');
         }
 
         // 表单提交处理 - 违纪记录
@@ -602,8 +698,60 @@
             loadTemplates();
         });
 
-        // 初始化加载
-        loadDashboard();
+        // 初始化加载 - 检查登录状态
+        function checkLoginStatus() {
+            const isLoggedIn = localStorage.getItem('isLoggedIn');
+            if (isLoggedIn === 'true') {
+                document.getElementById('sidebarNav').style.display = 'block';
+                document.getElementById('mainContent').style.display = 'block';
+                document.getElementById('loginPage').style.display = 'none';
+                loadDashboard();
+            } else {
+                document.getElementById('sidebarNav').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'flex';
+            }
+        }
+        
+        // 登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            try {
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                
+                const response = await fetch(`${API_BASE}/admin/login`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    localStorage.setItem('isLoggedIn', 'true');
+                    document.getElementById('loginError').style.display = 'none';
+                    checkLoginStatus();
+                } else {
+                    const error = await response.json();
+                    document.getElementById('loginError').textContent = error.detail || '登录失败';
+                    document.getElementById('loginError').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('loginError').textContent = '网络错误，请稍后重试';
+                document.getElementById('loginError').style.display = 'block';
+            }
+        });
+        
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('isLoggedIn');
+            location.reload();
+        }
+        
+        // 页面加载时检查登录状态
+        checkLoginStatus();
     </script>
 </body>
 </html>
