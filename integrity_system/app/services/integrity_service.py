@@ -13,9 +13,14 @@ class IntegrityService:
     def __init__(self, db: Session):
         self.db = db
     
-    def search_person_records(self, name: str) -> List[SearchResult]:
+    def search_person_records(self, name: str, matter_type: str = None) -> List[SearchResult]:
         """检索某人的所有违纪、违规、信访记录"""
         results = []
+        
+        # 当选择"其他"类型时，需要查询包含"表彰奖励","职级晋升","交流任职","其他"四个类型的内容
+        # 但这里的search_person_records是查询违纪、违规、信访记录，这些记录本身没有matter_type字段
+        # 所以无论matter_type是什么，都返回该人的所有记录
+        # matter_type的过滤逻辑在match_template中处理
         
         # 查询违纪记录
         discipline_records = self.db.query(DisciplineRecord).filter(
@@ -114,6 +119,13 @@ class IntegrityService:
     
     def match_template(self, search_results: List[SearchResult], matter_type: str) -> Dict[str, Any]:
         """根据检索结果匹配答复模板"""
+        
+        # 当选择"其他"类型时，需要查询包含"表彰奖励","职级晋升","交流任职","其他"四个类型的内容
+        # 由于违纪、违规、信访记录本身没有matter_type字段，所以search_person_records返回该人的所有记录
+        # 这里的query_matter_types变量目前主要用于逻辑说明，实际过滤在业务层处理
+        query_matter_types = [matter_type]
+        if matter_type == "其他":
+            query_matter_types = ["干部选拔任用", "表彰奖励", "职级晋升", "交流任职", "其他"]
         
         # 优先级判断逻辑
         has_processing_petition = any(

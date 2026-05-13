@@ -261,7 +261,12 @@
                 <div class="form-group"><label>模板编号 *</label><input type="text" id="templateCode" required placeholder="如：T1"></div>
                 <div class="form-group"><label>模板名称 *</label><input type="text" id="templateName" required></div>
                 <div class="form-group"><label>适用场景 *</label><input type="text" id="templateScenario" required></div>
-                <div class="form-group"><label>事项类型</label><input type="text" id="templateMatter" value="干部选拔任用"></div>
+                <div class="form-group"><label>事项类型</label>
+                    <select id="templateMatter">
+                        <option value="干部选拔任用">干部选拔任用</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
                 <div class="form-group"><label>模板内容 *</label><textarea id="templateContent" required placeholder="使用{person_name}、{matter_type}、{date}、{type}、{reason}等变量"></textarea></div>
                 <div class="form-group"><label>优先级</label><input type="number" id="templatePriority" value="0"></div>
                 <div class="form-group"><label>状态</label><select id="templateActive"><option value="true">启用</option><option value="false">禁用</option></select></div>

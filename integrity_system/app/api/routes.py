@@ -261,8 +261,8 @@ def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
     """廉政意见智能查询"""
     service = IntegrityService(db)
     
-    # 检索记录
-    search_results = service.search_person_records(query.name)
+    # 检索记录 - 当选择"其他"类型时，需要查询所有类型的记录
+    search_results = service.search_person_records(query.name, query.matter_type)
     
     # 匹配模板
     match_result = service.match_template(search_results, query.matter_type)
