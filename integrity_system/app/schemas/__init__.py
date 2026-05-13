@@ -84,11 +84,14 @@ class ViolationRecordResponse(ViolationRecordBase):
 # ==================== 信访举报相关 ====================
 class PetitionReportBase(BaseModel):
     name: str = Field(..., description="姓名")
+    branch_company: Optional[str] = Field(None, description="分公司")
     report_date: date = Field(..., description="举报日期")
     report_content: str = Field(..., description="举报内容")
     verification_result: Optional[str] = Field(None, description="核查结果")
     organization_adoption: Optional[bool] = Field(None, description="组织是否采信")
-    status: str = Field("processing", description="状态：processing/completed/closed")
+    has_influence_period: bool = Field(False, description="有无影响期")
+    influence_end_date: Optional[date] = Field(None, description="影响期截止日期")
+    status: str = Field("processing", description="状态：processing/completed/influence_period_ended")
 
 
 class PetitionReportCreate(PetitionReportBase):
@@ -96,9 +99,12 @@ class PetitionReportCreate(PetitionReportBase):
 
 
 class PetitionReportUpdate(BaseModel):
+    branch_company: Optional[str] = None
     report_content: Optional[str] = None
     verification_result: Optional[str] = None
     organization_adoption: Optional[bool] = None
+    has_influence_period: Optional[bool] = None
+    influence_end_date: Optional[date] = None
     status: Optional[str] = None
 
 

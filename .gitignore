@@ -1,1 +1,87 @@
-Nothing should be ignored based on the provided file changes. The only modified file is a template file (`integrity_system/app/templates/admin.html`) which appears to be a source code file that should be tracked in version control. No build artifacts, dependencies, temporary files, or other ignorable content were detected in the changes.
+```gitignore
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.env
+.env.local
+.env.*
+requirements.txt.bak
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Database
+*.sqlite
+*.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Coverage reports
+.coverage
+htmlcov/
+.coverage.*
+.coverage.xml
+coverage.xml
+
+# Testing
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+```
+Wait, let me reconsider. The modified files are just Python source files (`database.py` and `__init__.py`) which are source code, not build artifacts or temporary files. There are no compiled files, dependency directories, or other artifacts in the changes shown.
+
+Since only source code files are being modified, no additional ignores are needed beyond what might already be reasonable for a Python project.
+
+```gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.env
+.env.local
+.env.*
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+htmlcov/
+.coverage.*
+.coverage.xml
+coverage.xml
+*.sqlite
+*.db
+```
