@@ -5,44 +5,20 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Database
-integrity_system/data/integrity.db
-
-# Logs
+# Logs and temp files
 *.log
+*.tmp
 
 # Environment
 .env
 .env.local
 *.env.*
 
-# Dependencies
-.venv/
-venv/
-node_modules/
-
-# Build artifacts
-dist/
-build/
-target/
-*.egg-info/
-
 # Editors
 .vscode/
 .idea/
-*.swp
-*.swo
 
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
-.pytest_cache/
-.mypy_cache/
+# Dependencies
+.venv/
+venv/
 ```
