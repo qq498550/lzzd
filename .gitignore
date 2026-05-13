@@ -1,87 +1,48 @@
-```gitignore
+```
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.env
-.env.local
-.env.*
-requirements.txt.bak
-pip-log.txt
-pip-delete-this-directory.txt
 
 # Database
-*.sqlite
-*.db
+integrity_system/data/integrity.db
 
 # Logs
 *.log
 
-# Temporary files
-*.tmp
-*.temp
-*~
+# Environment
+.env
+.env.local
+*.env.*
 
-# Coverage reports
-.coverage
-htmlcov/
-.coverage.*
-.coverage.xml
-coverage.xml
+# Dependencies
+.venv/
+venv/
+node_modules/
 
-# Testing
-.pytest_cache/
-.mypy_cache/
-.hypothesis/
+# Build artifacts
+dist/
+build/
+target/
+*.egg-info/
 
-# IDE
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
+# Coverage
+.coverage
+coverage/
+htmlcov/
+
 # OS
 .DS_Store
 Thumbs.db
-```
-Wait, let me reconsider. The modified files are just Python source files (`database.py` and `__init__.py`) which are source code, not build artifacts or temporary files. There are no compiled files, dependency directories, or other artifacts in the changes shown.
 
-Since only source code files are being modified, no additional ignores are needed beyond what might already be reasonable for a Python project.
-
-```gitignore
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.env
-.env.local
-.env.*
-.DS_Store
-Thumbs.db
-*.log
-*.tmp
-*.swp
-.vscode/
-.idea/
+# Testing
 .pytest_cache/
 .mypy_cache/
-.hypothesis/
-.coverage
-htmlcov/
-.coverage.*
-.coverage.xml
-coverage.xml
-*.sqlite
-*.db
 ```
