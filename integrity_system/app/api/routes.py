@@ -838,7 +838,7 @@ async def import_discipline_records(file: UploadFile = File(...), db: Session = 
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=str(row[9]).strip() if row[9] else '',
-                    status=chinese_to_status(str(row[10]).strip()) if row[10] else 'completed'
+                    remark=str(row[10]).strip() if row[10] else ''
                 )
                 db.add(record)
                 count += 1
@@ -878,7 +878,7 @@ async def import_discipline_records(file: UploadFile = File(...), db: Session = 
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
-                    status=chinese_to_status(values[10].strip()) if len(values) > 10 and values[10].strip() else 'completed'
+                    remark=values[10].strip() if len(values) > 10 and values[10].strip() else ''
                 )
                 db.add(record)
                 count += 1
@@ -929,7 +929,7 @@ async def import_violation_records(file: UploadFile = File(...), db: Session = D
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=str(row[9]).strip() if row[9] else '',
-                    status=chinese_to_status(str(row[10]).strip()) if row[10] else 'completed'
+                    remark=str(row[10]).strip() if row[10] else ''
                 )
                 db.add(record)
                 count += 1
@@ -969,7 +969,7 @@ async def import_violation_records(file: UploadFile = File(...), db: Session = D
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
                     reason=values[9].strip() if len(values) > 9 and values[9].strip() else '',
-                    status=chinese_to_status(values[10].strip()) if len(values) > 10 and values[10].strip() else 'completed'
+                    remark=values[10].strip() if len(values) > 10 and values[10].strip() else ''
                 )
                 db.add(record)
                 count += 1
@@ -1026,7 +1026,7 @@ async def import_petition_records(file: UploadFile = File(...), db: Session = De
                     organization_adoption=org_adoption,
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
-                    status=chinese_to_status(str(row[9]).strip()) if row[9] else 'processing'
+                    remark=str(row[9]).strip() if row[9] else ''
                 )
                 db.add(record)
                 count += 1
@@ -1072,7 +1072,7 @@ async def import_petition_records(file: UploadFile = File(...), db: Session = De
                     organization_adoption=org_adoption,
                     has_influence_period=has_period,
                     influence_end_date=influence_end,
-                    status=chinese_to_status(values[9].strip()) if len(values) > 9 and values[9].strip() else 'processing'
+                    remark=values[9].strip() if len(values) > 9 and values[9].strip() else ''
                 )
                 db.add(record)
                 count += 1
