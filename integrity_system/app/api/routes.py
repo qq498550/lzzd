@@ -11,6 +11,8 @@ import json
 import io
 import csv
 import base64
+import shutil
+from pathlib import Path
 
 from app.models.database import get_db
 
@@ -632,6 +634,132 @@ def export_discipline_records(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
+# ==================== 数据库备份与恢复 ====================
+@router.get("/backup/export", tags=["数据库管理"])
+def export_database_backup():
+    """导出数据库备份文件"""
+    try:
+        import sqlite3
+        import os
+        
+        # 从 SQLAlchemy 引擎获取实际数据库文件路径
+        from app.models.database import engine
+        db_url = str(engine.url)
+        
+        # 解析数据库URL获取文件路径
+        # sqlite:///./data/integrity.db 或 sqlite:///integrity.db
+        if db_url.startswith('sqlite:///'):
+            db_path_str = db_url.replace('sqlite:///', '')
+            # 处理 Windows 绝对路径如 C:/path/db.db
+            if len(db_path_str) > 1 and db_path_str[1] == ':':
+                db_path = Path(db_path_str)
+            else:
+                # 相对路径，需要转为绝对路径
+                db_path = Path(__file__).parent.parent.parent / db_path_str
+        
+        if not db_path.exists():
+            raise HTTPException(status_code=404, detail=f"数据库文件不存在: {db_path}")
+        
+        # 生成备份文件名（带时间戳）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"integrity_backup_{timestamp}.db"
+        
+        # 读取数据库文件内容
+        with open(db_path, 'rb') as f:
+            db_content = f.read()
+        
+        # 返回文件流
+        output = io.BytesIO(db_content)
+        
+        return StreamingResponse(
+            output,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(backup_filename)}"}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[数据库备份] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"备份失败: {str(e)}")
+
+
+@router.post("/backup/import", tags=["数据库管理"])
+async def import_database_backup(file: UploadFile = File(...)):
+    """从备份文件恢复数据库（需重启服务）"""
+    try:
+        import sqlite3
+        import os
+        
+        # 验证文件类型
+        if not file.filename.endswith('.db'):
+            raise HTTPException(status_code=400, detail="请上传 .db 格式的数据库备份文件")
+        
+        # 从 SQLAlchemy 引擎获取实际数据库文件路径
+        from app.models.database import engine
+        db_url = str(engine.url)
+        
+        # 解析数据库URL获取文件路径
+        if db_url.startswith('sqlite:///'):
+            db_path_str = db_url.replace('sqlite:///', '')
+            if len(db_path_str) > 1 and db_path_str[1] == ':':
+                db_path = Path(db_path_str)
+            else:
+                db_path = Path(__file__).parent.parent.parent / db_path_str
+        
+        # 获取数据目录用于存储临时文件
+        data_dir = db_path.parent
+        
+        # 先保存上传的文件为临时文件
+        temp_path = data_dir / "temp_restore.db"
+        
+        # 读取上传内容并保存
+        contents = await file.read()
+        with open(temp_path, 'wb') as f:
+            f.write(contents)
+        
+        # 验证备份文件是否是有效的SQLite数据库
+        try:
+            conn = sqlite3.connect(str(temp_path))
+            cursor = conn.cursor()
+            # 检查必要的表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in cursor.fetchall()]
+            required_tables = ['discipline_records', 'violation_records', 'petition_reports', 'answer_templates']
+            missing_tables = [t for t in required_tables if t not in tables]
+            conn.close()
+            
+            if missing_tables:
+                os.remove(temp_path)
+                raise HTTPException(status_code=400, detail=f"备份文件无效，缺少必要的表: {', '.join(missing_tables)}")
+        except sqlite3.Error as e:
+            if temp_path.exists():
+                os.remove(temp_path)
+            raise HTTPException(status_code=400, detail=f"备份文件无效: {str(e)}")
+        
+        # 先备份当前数据库（以防万一）
+        if db_path.exists():
+            backup_old = data_dir / f"integrity_backup_before_restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+            shutil.copy2(db_path, backup_old)
+            print(f"[数据库恢复] 已备份当前数据库到: {backup_old}")
+        
+        # 替换数据库文件
+        shutil.move(str(temp_path), str(db_path))
+        
+        return {
+            "success": True,
+            "message": "数据库恢复成功！请刷新页面以加载新数据。"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"[数据库恢复] 错误: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"恢复失败: {str(e)}")
+
+
 @router.get("/export/violation", tags=["数据导入导出"])
 def export_violation_records(db: Session = Depends(get_db)):
     """导出违规记录为Excel"""
@@ -676,6 +804,7 @@ def export_violation_records(db: Session = Depends(get_db)):
         print(f"[导出违规] 错误: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
 
 
 @router.get("/export/petition", tags=["数据导入导出"])
@@ -725,6 +854,7 @@ def export_petition_records(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
 
 
+
 @router.get("/export/template", tags=["数据导入导出"])
 def export_templates(db: Session = Depends(get_db)):
     """导出答复模板为Excel"""
@@ -764,6 +894,8 @@ def export_templates(db: Session = Depends(get_db)):
         print(f"[导出模板] 错误: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"导出失败: {str(e)}")
+
+
 
 
 @router.get("/template/download", tags=["数据导入导出"])
