@@ -81,9 +81,10 @@ class AnswerTemplate(Base):
     __tablename__ = "answer_templates"
     
     id = Column(Integer, primary_key=True, index=True)
-    template_code = Column(String(20), unique=True, index=True)  # 模板编号 T1-T8
+    template_code = Column(String(20), unique=True, index=True)  # 模板编号 T1-T8 或 G1-G8
     template_name = Column(String(100))  # 模板名称
     scenario_type = Column(String(100))  # 适用场景
+    template_type = Column(String(50), default="selection")  # 模板类型：selection=选拔任用, other=其他查询
     matter_type = Column(String(100))  # 事项类型：干部选拔任用/表彰奖励等
     template_content = Column(Text)  # 模板内容（含变量占位符）
     priority = Column(Integer, default=0)  # 优先级
@@ -136,7 +137,8 @@ def _upgrade_table_structure():
     tables_to_check = {
         'discipline_records': ['branch_company'],
         'violation_records': ['branch_company'],
-        'petition_reports': ['branch_company', 'department']
+        'petition_reports': ['branch_company', 'department'],
+        'answer_templates': ['template_type']
     }
     
     # 需要重命名的字段（status -> remark）

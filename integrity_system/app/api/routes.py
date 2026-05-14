@@ -462,6 +462,9 @@ def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
     """廉政意见智能查询"""
     service = IntegrityService(db)
 
+    # 判断是否为"其他"类型查询
+    is_other_type = query.matter_type == "其他"
+
     # 检索记录 - 当选择"其他"类型时，需要查询所有类型的记录
     search_results = service.search_person_records(query.name, query.matter_type)
 
@@ -469,7 +472,7 @@ def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
     person_exists = len(search_results) > 0
 
     # 匹配模板
-    match_result = service.match_template(search_results, query.matter_type)
+    match_result = service.match_template(search_results, query.matter_type, is_other_type)
 
     # 生成答复
     if not person_exists:
@@ -483,7 +486,8 @@ def intelligent_query(query: QueryRequest, db: Session = Depends(get_db)):
             match_result["template_content"],
             query.name,
             query.matter_type,
-            search_results
+            search_results,
+            is_other_type
         )
         template_code = match_result["template_code"]
         template_name = match_result["template_name"]

@@ -115,7 +115,7 @@ class IntegrityService:
         else:
             return "尚在影响期内"
     
-    def match_template(self, search_results: List[SearchResult], matter_type: str) -> Dict[str, Any]:
+    def match_template(self, search_results: List[SearchResult], matter_type: str, is_other_type: bool = False) -> Dict[str, Any]:
         """根据检索结果匹配答复模板"""
         
         # 当选择"其他"类型时，需要查询包含"表彰奖励","职级晋升","交流任职","其他"四个类型的内容
@@ -164,55 +164,60 @@ class IntegrityService:
             )
         )
         
-        # 模板匹配
+        # 模板匹配 - 根据事项类型选择不同的模板代码前缀
+        # T开头=选拔任用模板，G开头=其他查询模板
+        prefix = "G" if is_other_type else "T"
+        
         template_code = None
         template_name = None
         conclusion = None
         
         if not search_results:
             # 模板1：无任何记录
-            template_code = "T1"
+            template_code = f"{prefix}1"
             template_name = "无记录模板"
             conclusion = "不持异议"
         elif has_processing_petition:
             # 模板7：举报正在办理中
-            template_code = "T7"
+            template_code = f"{prefix}7"
             template_name = "正在办理模板"
-            conclusion = "建议暂缓提拔"
+            conclusion = "建议暂缓函询事项" if is_other_type else "建议暂缓提拔"
         elif has_in_progress_influence:
             # 模板8：尚在影响期内
-            template_code = "T8"
+            template_code = f"{prefix}8"
             template_name = "影响期内模板"
-            conclusion = "建议不宜作为拟提拔人选"
+            conclusion = "建议不宜作为拟函询事项人选" if is_other_type else "建议不宜作为拟提拔人选"
         elif has_petition_denied:
             # 模板2或3：举报已核查但无问题
-            template_code = "T2"
+            template_code = f"{prefix}2"
             template_name = "举报查否模板"
             conclusion = "不持异议"
         elif has_only_organizational_handling:
             # 模板4：仅组织处理
-            template_code = "T4"
+            template_code = f"{prefix}4"
             template_name = "组织处理模板"
             conclusion = "不持异议"
         elif has_completed_records:
             # 模板5或6：已过影响期
-            template_code = "T6"
+            template_code = f"{prefix}6"
             template_name = "已过影响期模板"
             conclusion = "不持异议"
         elif has_petition_completed:
             # 模板2或3
-            template_code = "T3"
+            template_code = f"{prefix}3"
             template_name = "举报无证据模板"
             conclusion = "不持异议"
         else:
             # 默认模板1
-            template_code = "T1"
+            template_code = f"{prefix}1"
             template_name = "无记录模板"
             conclusion = "不持异议"
         
-        # 获取模板内容
+        # 获取模板内容 - 根据模板类型查询
+        template_type = "other" if is_other_type else "selection"
         template_record = self.db.query(AnswerTemplate).filter(
             AnswerTemplate.template_code == template_code,
+            AnswerTemplate.template_type == template_type,
             AnswerTemplate.is_active == True
         ).first()
         
@@ -220,7 +225,7 @@ class IntegrityService:
         if template_record:
             template_content = template_record.template_content
         else:
-            template_content = self._get_default_template(template_code)
+            template_content = self._get_default_template(template_code, is_other_type)
         
         return {
             "template_code": template_code,
@@ -229,22 +234,37 @@ class IntegrityService:
             "template_content": template_content
         }
     
-    def _get_default_template(self, template_code: str) -> str:
+    def _get_default_template(self, template_code: str, is_other_type: bool = False) -> str:
         """获取默认模板内容"""
-        templates = {
-            "T1": "经审核，未收到过{person_name}同志的信访举报。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T2": "经审核，收到反映{person_name}同志的信访举报，已核查完毕并采信本人说明。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T3": "经审核，收到反映{person_name}同志的信访举报，经核查未发现相关证据。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T4": "经审核，{person_name}同志于{date}因{reason}受到{type}处理（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T5": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T6": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
-            "T7": "经审核，目前收到反映{person_name}同志的信访举报正在办理中，建议暂缓{matter_type}。",
-            "T8": "经审核，{person_name}同志于{date}因{reason}问题，受到{type}处分（尚在影响期内），建议不宜作为拟{matter_type}人选。"
-        }
+        if is_other_type:
+            # 其他查询模板
+            templates = {
+                "G1": "经审核，未收到过{person_name}同志的信访举报。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G2": "经审核，收到反映{person_name}同志的信访举报，已核查完毕并采信本人说明。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G3": "经审核，收到反映{person_name}同志的信访举报，经核查未发现相关证据。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G4": "经审核，{person_name}同志于{date}因{reason}受到{type}处理（已过影响期）。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G5": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G6": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟函询事项人选不持异议。",
+                "G7": "经审核，目前收到反映{person_name}同志的信访举报正在办理中，建议暂缓函询事项。",
+                "G8": "经审核，{person_name}同志于{date}因{reason}问题，受到{type}处分（尚在影响期内），建议不宜作为函询事项人选。"
+            }
+        else:
+            # 选拔任用模板
+            templates = {
+                "T1": "经审核，未收到过{person_name}同志的信访举报。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T2": "经审核，收到反映{person_name}同志的信访举报，已核查完毕并采信本人说明。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T3": "经审核，收到反映{person_name}同志的信访举报，经核查未发现相关证据。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T4": "经审核，{person_name}同志于{date}因{reason}受到{type}处理（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T5": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T6": "经审核，未收到过{person_name}同志的信访举报。此外，{date}{person_name}同志因{reason}问题，受到{type}处分（已过影响期）。对{person_name}同志作为拟{matter_type}人选不持异议。",
+                "T7": "经审核，目前收到反映{person_name}同志的信访举报正在办理中，建议暂缓{matter_type}。",
+                "T8": "经审核，{person_name}同志于{date}因{reason}问题，受到{type}处分（尚在影响期内），建议不宜作为拟{matter_type}人选。"
+            }
         return templates.get(template_code, "")
     
     def generate_answer(self, template_content: str, person_name: str, 
-                       matter_type: str, search_results: List[SearchResult]) -> str:
+                       matter_type: str, search_results: List[SearchResult], 
+                       is_other_type: bool = False) -> str:
         """生成最终答复文本"""
         
         # 找出最新的处分记录用于填充
@@ -266,10 +286,13 @@ class IntegrityService:
             type_str = latest_discipline.accountability_type or ""
             reason_str = latest_discipline.reason or ""
         
+        # 当事项类型为"其他"时，替换为"函询事项"，否则使用原事项类型
+        display_matter_type = "函询事项" if is_other_type else matter_type
+        
         # 替换变量
         answer = template_content.format(
             person_name=person_name,
-            matter_type=matter_type,
+            matter_type=display_matter_type,
             date=date_str,
             type=type_str,
             reason=reason_str
