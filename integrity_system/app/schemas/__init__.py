@@ -179,7 +179,7 @@ class SearchResult(BaseModel):
     has_influence_period: bool
     influence_end_date: Optional[date]
     reason: str
-    status: str
+    remark: str  # 备注
     influence_status: str  # 已过影响期/尚在影响期内/不适用
 
 

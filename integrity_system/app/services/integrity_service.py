@@ -43,7 +43,7 @@ class IntegrityService:
                 has_influence_period=record.has_influence_period,
                 influence_end_date=record.influence_end_date,
                 reason=record.reason,
-                status=record.status,
+                remark=record.remark if hasattr(record, 'remark') else '',
                 influence_status=influence_status
             ))
         
@@ -68,7 +68,7 @@ class IntegrityService:
                 has_influence_period=record.has_influence_period,
                 influence_end_date=record.influence_end_date,
                 reason=record.reason,
-                status=record.status,
+                remark=record.remark if hasattr(record, 'remark') else '',
                 influence_status=influence_status
             ))
         
@@ -79,12 +79,10 @@ class IntegrityService:
         
         for record in petition_records:
             # 信访举报的影响期状态特殊处理
-            if record.status == "processing":
-                influence_status = "正在办理中"
-            elif record.status == "completed":
+            if record.verification_result:
                 influence_status = "已办结"
             else:
-                influence_status = "不适用"
+                influence_status = "正在办理中"
             
             results.append(SearchResult(
                 record_type="petition",
@@ -92,12 +90,12 @@ class IntegrityService:
                 department=None,
                 position=None,
                 processing_org="信访部门",
-                accountability_type=f"信访举报-{record.status}",
+                accountability_type="信访举报",
                 accountability_date=record.report_date,
                 has_influence_period=False,
                 influence_end_date=None,
                 reason=record.report_content[:100] + "..." if len(record.report_content) > 100 else record.report_content,
-                status=record.status,
+                remark=record.remark if hasattr(record, 'remark') else '',
                 influence_status=influence_status
             ))
         
@@ -129,7 +127,7 @@ class IntegrityService:
         
         # 优先级判断逻辑
         has_processing_petition = any(
-            r.record_type == "petition" and r.status == "processing" 
+            r.record_type == "petition" and r.influence_status == "正在办理中" 
             for r in search_results
         )
         
@@ -144,14 +142,14 @@ class IntegrityService:
         )
         
         has_petition_completed = any(
-            r.record_type == "petition" and r.status in ["completed", "closed"]
+            r.record_type == "petition" and r.influence_status == "已办结"
             for r in search_results
         )
         
         # 检查是否有举报但核查否认+组织采信
         has_petition_denied = any(
             r.record_type == "petition" and 
-            r.status in ["completed", "closed"] and
+            r.influence_status == "已办结" and
             "未发现" in r.reason
             for r in search_results
         )
