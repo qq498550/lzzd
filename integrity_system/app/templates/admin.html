@@ -147,7 +147,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="disciplineTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责情况</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责情况</th><th>时间</th><th>影响期截止</th><th>备注</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -168,7 +168,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="violationTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责类型</th><th>时间</th><th>影响期截止</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>问责类型</th><th>时间</th><th>影响期截止</th><th>备注</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -189,7 +189,7 @@
             </div>
             <div class="card">
                 <table class="data-table" id="petitionTable">
-                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>举报日期</th><th>核查结果</th><th>状态</th><th>操作</th></tr></thead>
+                    <thead><tr><th>ID</th><th>姓名</th><th>分公司</th><th>部门</th><th>举报日期</th><th>核查结果</th><th>备注</th><th>操作</th></tr></thead>
                     <tbody></tbody>
                 </table>
             </div>
@@ -271,6 +271,7 @@
                 <div class="form-group"><label>有无影响期</label><select id="disciplineHasPeriod" onchange="toggleEndDateField('discipline')"><option value="true">有</option><option value="false">无</option></select></div>
                 <div class="form-group" id="disciplineEndDateGroup"><label>影响期截止日期</label><input type="date" id="disciplineEndDate"></div>
                 <div class="form-group"><label>事由 *</label><textarea id="disciplineReason" required></textarea></div>
+                <div class="form-group"><label>备注</label><textarea id="disciplineRemark"></textarea></div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="submit" class="btn btn-primary">保存</button>
                     <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('disciplineModal')">取消</button>
@@ -298,6 +299,7 @@
                 <div class="form-group"><label>有无影响期</label><select id="violationHasPeriod" onchange="toggleEndDateField('violation')"><option value="true">有</option><option value="false">无</option></select></div>
                 <div class="form-group" id="violationEndDateGroup"><label>影响期截止日期</label><input type="date" id="violationEndDate"></div>
                 <div class="form-group"><label>事由 *</label><textarea id="violationReason" required></textarea></div>
+                <div class="form-group"><label>备注</label><textarea id="violationRemark"></textarea></div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="submit" class="btn btn-primary">保存</button>
                     <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('violationModal')">取消</button>
@@ -324,7 +326,7 @@
                 <div class="form-group"><label>组织采信</label><select id="petitionAdoption"><option value="">请选择</option><option value="true">是</option><option value="false">否</option></select></div>
                 <div class="form-group"><label>有无影响期</label><select id="petitionHasPeriod" onchange="toggleEndDateField('petition')"><option value="true">有</option><option value="false">无</option></select></div>
                 <div class="form-group" id="petitionEndDateGroup"><label>影响期截止日期</label><input type="date" id="petitionEndDate"></div>
-                <div class="form-group"><label>状态</label><select id="petitionStatus"><option value="processing">办理中</option><option value="completed">已办结</option><option value="influence_period_ended">影响期截止</option></select></div>
+                <div class="form-group"><label>备注</label><textarea id="petitionRemark"></textarea></div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button type="submit" class="btn btn-primary">保存</button>
                     <button type="button" class="btn" style="background: #6c757d; color: white;" onclick="closeModal('petitionModal')">取消</button>
@@ -425,6 +427,7 @@
             document.getElementById('disciplineHasPeriod').value = data.has_influence_period ? 'true' : 'false';
             document.getElementById('disciplineEndDate').value = data.influence_end_date || '';
             document.getElementById('disciplineReason').value = data.reason || '';
+            document.getElementById('disciplineRemark').value = data.remark || '';
             toggleEndDateField('discipline');
             openModal('disciplineModal');
         }
@@ -443,6 +446,7 @@
             document.getElementById('violationHasPeriod').value = data.has_influence_period ? 'true' : 'false';
             document.getElementById('violationEndDate').value = data.influence_end_date || '';
             document.getElementById('violationReason').value = data.reason || '';
+            document.getElementById('violationRemark').value = data.remark || '';
             toggleEndDateField('violation');
             openModal('violationModal');
         }
@@ -460,7 +464,7 @@
             document.getElementById('petitionAdoption').value = data.organization_adoption === true ? 'true' : (data.organization_adoption === false ? 'false' : '');
             document.getElementById('petitionHasPeriod').value = data.has_influence_period ? 'true' : 'false';
             document.getElementById('petitionEndDate').value = data.influence_end_date || '';
-            document.getElementById('petitionStatus').value = data.status || 'processing';
+            document.getElementById('petitionRemark').value = data.remark || '';
             toggleEndDateField('petition');
             openModal('petitionModal');
         }
@@ -540,23 +544,7 @@
         async function loadDiscipline() {
             const data = await fetch(`${API_BASE}/discipline/`).then(r => r.json());
             const tbody = document.querySelector('#disciplineTable tbody');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            tbody.innerHTML = data.map(item => {
-                let statusHtml = '';
-                if (item.influence_end_date && item.influence_end_date !== '无') {
-                    const endDate = new Date(item.influence_end_date);
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    if (endDate < yesterday) {
-                        statusHtml = '<span class="status-badge status-expired">已过影响期</span>';
-                    } else {
-                        statusHtml = '<span class="status-badge status-not-expired">未过影响期</span>';
-                    }
-                } else {
-                    statusHtml = '<span class="status-badge">无影响期</span>';
-                }
-                return `
+            tbody.innerHTML = data.map(item => `
                 <tr>
                     <td>${item.id}</td>
                     <td>${item.name}</td>
@@ -565,37 +553,20 @@
                     <td>${item.accountability_type}</td>
                     <td>${item.accountability_date}</td>
                     <td>${item.influence_end_date || '无'}</td>
-                    <td>${statusHtml}</td>
+                    <td>${item.remark || '-'}</td>
                     <td class="action-btns">
                         <button class="btn btn-warning" onclick="editDiscipline(${item.id})">编辑</button>
                         <button class="btn btn-danger" onclick="deleteRecord('discipline', ${item.id})">删除</button>
                     </td>
                 </tr>
-                `;
-            }).join('');
+            `).join('');
         }
 
         // 加载违规记录
         async function loadViolation() {
             const data = await fetch(`${API_BASE}/violation/`).then(r => r.json());
             const tbody = document.querySelector('#violationTable tbody');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            tbody.innerHTML = data.map(item => {
-                let statusHtml = '';
-                if (item.influence_end_date && item.influence_end_date !== '无') {
-                    const endDate = new Date(item.influence_end_date);
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    if (endDate < yesterday) {
-                        statusHtml = '<span class="status-badge status-expired">已过影响期</span>';
-                    } else {
-                        statusHtml = '<span class="status-badge status-not-expired">未过影响期</span>';
-                    }
-                } else {
-                    statusHtml = '<span class="status-badge">无影响期</span>';
-                }
-                return `
+            tbody.innerHTML = data.map(item => `
                 <tr>
                     <td>${item.id}</td>
                     <td>${item.name}</td>
@@ -604,39 +575,20 @@
                     <td>${item.violation_type}</td>
                     <td>${item.violation_date}</td>
                     <td>${item.influence_end_date || '无'}</td>
-                    <td>${statusHtml}</td>
+                    <td>${item.remark || '-'}</td>
                     <td class="action-btns">
                         <button class="btn btn-warning" onclick="editViolation(${item.id})">编辑</button>
                         <button class="btn btn-danger" onclick="deleteRecord('violation', ${item.id})">删除</button>
                     </td>
                 </tr>
-                `;
-            }).join('');
+            `).join('');
         }
 
         // 加载信访举报
         async function loadPetition() {
             const data = await fetch(`${API_BASE}/petition/`).then(r => r.json());
             const tbody = document.querySelector('#petitionTable tbody');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            tbody.innerHTML = data.map(item => {
-                let statusHtml = '';
-                if (item.status === 'influence_period_ended') {
-                    statusHtml = '<span class="status-badge status-expired">影响期截止</span>';
-                } else if (item.influence_end_date) {
-                    const endDate = new Date(item.influence_end_date);
-                    const yesterday = new Date(today);
-                    yesterday.setDate(yesterday.getDate() - 1);
-                    if (endDate < yesterday) {
-                        statusHtml = '<span class="status-badge status-expired">已过影响期</span>';
-                    } else {
-                        statusHtml = '<span class="status-badge status-not-expired">未过影响期</span>';
-                    }
-                } else {
-                    statusHtml = '<span class="status-badge">无影响期</span>';
-                }
-                return `
+            tbody.innerHTML = data.map(item => `
                 <tr>
                     <td>${item.id}</td>
                     <td>${item.name}</td>
@@ -644,14 +596,13 @@
                     <td>${item.department || '-'}</td>
                     <td>${item.report_date}</td>
                     <td>${item.verification_result || '-'}</td>
-                    <td>${statusHtml}</td>
+                    <td>${item.remark || '-'}</td>
                     <td class="action-btns">
                         <button class="btn btn-warning" onclick="editPetition(${item.id})">编辑</button>
                         <button class="btn btn-danger" onclick="deleteRecord('petition', ${item.id})">删除</button>
                     </td>
                 </tr>
-                `;
-            }).join('');
+            `).join('');
         }
 
         async function loadTemplates() {
@@ -749,7 +700,8 @@
                     accountability_date: document.getElementById('disciplineDate').value,
                     has_influence_period: document.getElementById('disciplineHasPeriod').value === 'true',
                     influence_end_date: document.getElementById('disciplineEndDate').value || null,
-                    reason: document.getElementById('disciplineReason').value
+                    reason: document.getElementById('disciplineReason').value,
+                    remark: document.getElementById('disciplineRemark').value
                 };
                 
                 const url = id ? `${API_BASE}/discipline/${id}` : `${API_BASE}/discipline/`;
@@ -796,7 +748,8 @@
                     violation_date: document.getElementById('violationDate').value,
                     has_influence_period: document.getElementById('violationHasPeriod').value === 'true',
                     influence_end_date: document.getElementById('violationEndDate').value || null,
-                    reason: document.getElementById('violationReason').value
+                    reason: document.getElementById('violationReason').value,
+                    remark: document.getElementById('violationRemark').value
                 };
                 
                 const url = id ? `${API_BASE}/violation/${id}` : `${API_BASE}/violation/`;
@@ -844,7 +797,7 @@
                     organization_adoption: orgAdoptionValue === 'true' ? true : (orgAdoptionValue === 'false' ? false : null),
                     has_influence_period: document.getElementById('petitionHasPeriod').value === 'true',
                     influence_end_date: document.getElementById('petitionEndDate').value || null,
-                    status: document.getElementById('petitionStatus').value
+                    remark: document.getElementById('petitionRemark').value
                 };
                 
                 const url = id ? `${API_BASE}/petition/${id}` : `${API_BASE}/petition/`;

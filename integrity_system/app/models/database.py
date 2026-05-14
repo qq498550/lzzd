@@ -32,7 +32,7 @@ class DisciplineRecord(Base):
     has_influence_period = Column(Boolean, default=True)  # 有无影响期
     influence_end_date = Column(Date)  # 影响期截止日期
     reason = Column(Text)  # 事由
-    status = Column(String(50), default="completed")  # 状态：completed/processing
+    remark = Column(Text, default="")  # 备注
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -52,7 +52,7 @@ class ViolationRecord(Base):
     has_influence_period = Column(Boolean, default=True)  # 有无影响期
     influence_end_date = Column(Date)  # 影响期截止日期
     reason = Column(Text)  # 事由
-    status = Column(String(50), default="completed")  # 状态：completed/processing
+    remark = Column(Text, default="")  # 备注
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -71,7 +71,7 @@ class PetitionReport(Base):
     organization_adoption = Column(Boolean)  # 组织是否采信
     has_influence_period = Column(Boolean, default=False)  # 有无影响期
     influence_end_date = Column(Date)  # 影响期截止日期
-    status = Column(String(50), default="processing")  # processing/completed/influence_period_ended
+    remark = Column(Text, default="")  # 备注
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -139,7 +139,15 @@ def _upgrade_table_structure():
         'petition_reports': ['branch_company', 'department']
     }
     
+    # 需要重命名的字段（status -> remark）
+    tables_to_rename = {
+        'discipline_records': ('status', 'remark'),
+        'violation_records': ('status', 'remark'),
+        'petition_reports': ('status', 'remark')
+    }
+    
     with engine.connect() as conn:
+        # 添加新字段
         for table_name, columns_to_add in tables_to_check.items():
             try:
                 existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
@@ -147,7 +155,6 @@ def _upgrade_table_structure():
                 for column_to_add in columns_to_add:
                     if column_to_add not in existing_columns:
                         print(f"[DB] 为表 {table_name} 添加缺失的列: {column_to_add}")
-                        # 使用 SQLite 的 ALTER TABLE ADD COLUMN
                         try:
                             conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_to_add} VARCHAR(200)"))
                             conn.commit()
@@ -157,6 +164,30 @@ def _upgrade_table_structure():
                             conn.rollback()
             except Exception as e:
                 print(f"[DB] 检查表 {table_name} 结构时出错: {e}")
+        
+        # 处理 status -> remark 迁移
+        for table_name, (old_col, new_col) in tables_to_rename.items():
+            try:
+                existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
+                
+                # 如果有 status 字段且没有 remark 字段，则迁移数据
+                if old_col in existing_columns and new_col not in existing_columns:
+                    print(f"[DB] 迁移表 {table_name} 的 {old_col} -> {new_col}")
+                    try:
+                        # 添加 remark 列
+                        conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {new_col} TEXT"))
+                        # 复制 status 数据到 remark
+                        conn.execute(text(f"UPDATE {table_name} SET {new_col} = {old_col}"))
+                        conn.commit()
+                        print(f"[DB] 成功迁移 {table_name}.{old_col} -> {new_col}")
+                    except Exception as e:
+                        print(f"[DB] 迁移 {table_name}.{old_col} 时出错: {e}")
+                        conn.rollback()
+                # 如果直接有 remark 字段
+                elif new_col in existing_columns:
+                    print(f"[DB] 表 {table_name} 已有 {new_col} 字段")
+            except Exception as e:
+                print(f"[DB] 检查表 {table_name} 迁移时出错: {e}")
 
 
 def get_db():

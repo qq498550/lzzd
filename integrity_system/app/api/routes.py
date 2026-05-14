@@ -24,6 +24,87 @@ def get_column_letter(col_idx):
     return result
 
 
+def apply_excel_style(ws, title_text, headers, data_rows, col_widths=None, sheet_title=None):
+    """美化Excel表格样式"""
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, GradientFill
+    from openpyxl.utils import get_column_letter as gcl
+    
+    # 颜色配置
+    title_fill = PatternFill(start_color='1F4E79', end_color='1F4E79', fill_type='solid')  # 深蓝色
+    header_fill = PatternFill(start_color='2E75B6', end_color='2E75B6', fill_type='solid')  # 蓝色
+    header_font = Font(bold=True, color='FFFFFF', size=11)
+    title_font = Font(bold=True, color='FFFFFF', size=16)
+    
+    even_row_fill = PatternFill(start_color='D6E3F8', end_color='D6E3F8', fill_type='solid')  # 浅蓝
+    odd_row_fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')    # 白色
+    
+    thin_border = Border(
+        left=Side(style='thin', color='B8CCE4'),
+        right=Side(style='thin', color='B8CCE4'),
+        top=Side(style='thin', color='B8CCE4'),
+        bottom=Side(style='thin', color='B8CCE4')
+    )
+    
+    # 设置工作表标题
+    if sheet_title:
+        ws.title = sheet_title
+    
+    # 标题行
+    ws.cell(row=1, column=1, value=title_text)
+    title_cell = ws.cell(row=1, column=1)
+    title_cell.font = title_font
+    title_cell.fill = title_fill
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    ws.row_dimensions[1].height = 30
+    
+    # 表头行
+    header_row = 2
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=header_row, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border = thin_border
+    ws.row_dimensions[header_row].height = 25
+    
+    # 数据行
+    for row_idx, row_data in enumerate(data_rows, 3):
+        fill = even_row_fill if (row_idx - 3) % 2 == 0 else odd_row_fill
+        for col_idx, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.fill = fill
+            cell.border = thin_border
+            # 数值列居右，其他居中
+            if isinstance(value, (int, float)) and col_idx == 1:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            else:
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        ws.row_dimensions[row_idx].height = 22
+    
+    # 统计行
+    total_row = len(data_rows) + 3
+    ws.cell(row=total_row, column=1, value=f'共 {len(data_rows)} 条记录')
+    ws.cell(row=total_row, column=1).font = Font(italic=True, size=10, color='666666')
+    ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
+    ws.cell(row=total_row, column=1).alignment = Alignment(horizontal='left', vertical='center')
+    
+    # 设置列宽
+    if col_widths:
+        for col, width in enumerate(col_widths, 1):
+            ws.column_dimensions[gcl(col)].width = width
+    else:
+        # 自动计算列宽
+        for col_idx in range(1, len(headers) + 1):
+            max_length = len(str(headers[col_idx - 1]))
+            for row_data in data_rows:
+                if col_idx <= len(row_data) and row_data[col_idx - 1]:
+                    max_length = max(max_length, len(str(row_data[col_idx - 1])))
+            ws.column_dimensions[gcl(col_idx)].width = min(max_length + 4, 40)
+    
+    return ws
+
+
 def status_to_chinese(status):
     """将状态值转换为中文显示"""
     status_map = {
@@ -507,62 +588,29 @@ def export_discipline_records(db: Session = Depends(get_db)):
     try:
         from app.models.database import DisciplineRecord
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         
         records = db.query(DisciplineRecord).all()
         
         wb = Workbook()
         ws = wb.active
-        ws.title = "违纪记录"
         
-        # 标题行
-        ws.cell(row=1, column=1, value='违纪记录导出')
-        title_cell = ws.cell(row=1, column=1)
-        title_cell.font = Font(bold=True, size=14)
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
+        headers = ['ID', '姓名', '分公司', '部门', '职务', '处理机构', '问责情况', '问责时间', 
+                   '有无影响期', '影响期截止日期', '事由', '备注']
         
-        # 表头
-        headers = ['ID', '姓名*', '分公司', '部门', '职务', '处理机构', '问责情况*', '问责时间*', 
-                   '有无影响期', '影响期截止日期', '事由*', '状态']
-        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
-        header_font = Font(bold=True)
-        thin_border = Border(
-            left=Side(style='thin'), right=Side(style='thin'),
-            top=Side(style='thin'), bottom=Side(style='thin')
-        )
-        
-        ws.append(headers)
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=2, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = thin_border
-        
-        # 数据行
-        for r in records:
-            ws.append([
+        data_rows = [
+            [
                 r.id, r.name, r.branch_company or '', r.department or '', r.position or '',
                 r.processing_org or '', r.accountability_type or '', 
                 r.accountability_date.strftime('%Y-%m-%d') if r.accountability_date else '',
                 '有' if r.has_influence_period else '无',
                 r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
-                r.reason or '', status_to_chinese(r.status)
-            ])
-            for col in range(1, len(headers) + 1):
-                ws.cell(row=ws.max_row, column=col).border = thin_border
+                r.reason or '', r.remark or ''
+            ] for r in records
+        ]
         
-        # 调整列宽
-        for col_idx in range(1, len(headers) + 1):
-            max_length = 0
-            for row_idx in range(1, ws.max_row + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value:
-                    try:
-                        max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        col_widths = [8, 12, 15, 15, 15, 15, 15, 12, 12, 15, 30, 10]
+        
+        apply_excel_style(ws, '违纪记录导出', headers, data_rows, col_widths, '违纪记录')
         
         output = io.BytesIO()
         wb.save(output)
@@ -586,62 +634,29 @@ def export_violation_records(db: Session = Depends(get_db)):
     try:
         from app.models.database import ViolationRecord
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         
         records = db.query(ViolationRecord).all()
         
         wb = Workbook()
         ws = wb.active
-        ws.title = "违规记录"
         
-        # 标题行
-        ws.cell(row=1, column=1, value='违规记录导出')
-        title_cell = ws.cell(row=1, column=1)
-        title_cell.font = Font(bold=True, size=14)
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=12)
+        headers = ['ID', '姓名', '分公司', '部门', '职务', '处理机构', '问责类型', '问责时间', 
+                   '有无影响期', '影响期截止日期', '事由', '备注']
         
-        # 表头
-        headers = ['ID', '姓名*', '分公司', '部门', '职务', '处理机构', '问责类型*', '问责时间*', 
-                   '有无影响期', '影响期截止日期', '事由*', '状态']
-        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
-        header_font = Font(bold=True)
-        thin_border = Border(
-            left=Side(style='thin'), right=Side(style='thin'),
-            top=Side(style='thin'), bottom=Side(style='thin')
-        )
-        
-        ws.append(headers)
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=2, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = thin_border
-        
-        # 数据行
-        for r in records:
-            ws.append([
+        data_rows = [
+            [
                 r.id, r.name, r.branch_company or '', r.department or '', r.position or '',
                 r.processing_org or '', r.violation_type or '',
                 r.violation_date.strftime('%Y-%m-%d') if r.violation_date else '',
                 '有' if r.has_influence_period else '无',
                 r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
-                r.reason or '', status_to_chinese(r.status)
-            ])
-            for col in range(1, len(headers) + 1):
-                ws.cell(row=ws.max_row, column=col).border = thin_border
+                r.reason or '', r.remark or ''
+            ] for r in records
+        ]
         
-        # 调整列宽
-        for col_idx in range(1, len(headers) + 1):
-            max_length = 0
-            for row_idx in range(1, ws.max_row + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value:
-                    try:
-                        max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        col_widths = [8, 12, 15, 15, 15, 15, 15, 12, 12, 15, 30, 10]
+        
+        apply_excel_style(ws, '违规记录导出', headers, data_rows, col_widths, '违规记录')
         
         output = io.BytesIO()
         wb.save(output)
@@ -665,63 +680,30 @@ def export_petition_records(db: Session = Depends(get_db)):
     try:
         from app.models.database import PetitionReport
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         
         records = db.query(PetitionReport).all()
         
         wb = Workbook()
         ws = wb.active
-        ws.title = "信访举报"
         
-        # 标题行
-        ws.cell(row=1, column=1, value='信访举报记录导出')
-        title_cell = ws.cell(row=1, column=1)
-        title_cell.font = Font(bold=True, size=14)
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=11)
+        headers = ['ID', '姓名', '分公司', '部门', '举报日期', '举报内容', '核查结果', 
+                   '组织是否采信', '有无影响期', '影响期截止日期', '备注']
         
-        # 表头
-        headers = ['ID', '姓名*', '分公司', '部门', '举报日期*', '举报内容*', '核查结果', 
-                   '组织是否采信', '有无影响期', '影响期截止日期', '状态']
-        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
-        header_font = Font(bold=True)
-        thin_border = Border(
-            left=Side(style='thin'), right=Side(style='thin'),
-            top=Side(style='thin'), bottom=Side(style='thin')
-        )
-        
-        ws.append(headers)
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=2, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = thin_border
-        
-        # 数据行
-        for r in records:
-            ws.append([
+        data_rows = [
+            [
                 r.id, r.name, r.branch_company or '', r.department or '',
                 r.report_date.strftime('%Y-%m-%d') if r.report_date else '',
                 r.report_content or '', r.verification_result or '',
                 '是' if r.organization_adoption else ('否' if r.organization_adoption is False else ''),
                 '有' if r.has_influence_period else '无',
                 r.influence_end_date.strftime('%Y-%m-%d') if r.influence_end_date else '',
-                status_to_chinese(r.status)
-            ])
-            for col in range(1, len(headers) + 1):
-                ws.cell(row=ws.max_row, column=col).border = thin_border
+                r.remark or ''
+            ] for r in records
+        ]
         
-        # 调整列宽
-        for col_idx in range(1, len(headers) + 1):
-            max_length = 0
-            for row_idx in range(1, ws.max_row + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value:
-                    try:
-                        max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 30)
+        col_widths = [8, 12, 15, 15, 12, 35, 20, 12, 12, 15, 10]
+        
+        apply_excel_style(ws, '信访举报记录导出', headers, data_rows, col_widths, '信访举报')
         
         output = io.BytesIO()
         wb.save(output)
@@ -745,57 +727,24 @@ def export_templates(db: Session = Depends(get_db)):
     try:
         from app.models.database import AnswerTemplate
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         
         records = db.query(AnswerTemplate).all()
         
         wb = Workbook()
         ws = wb.active
-        ws.title = "答复模板"
         
-        # 标题行
-        ws.cell(row=1, column=1, value='答复模板导出')
-        title_cell = ws.cell(row=1, column=1)
-        title_cell.font = Font(bold=True, size=14)
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=8)
-        
-        # 表头
         headers = ['ID', '模板编号', '模板名称', '适用场景', '事项类型', '模板内容', '优先级', '是否启用']
-        header_fill = PatternFill(start_color='D9D9D9', end_color='D9D9D9', fill_type='solid')
-        header_font = Font(bold=True)
-        thin_border = Border(
-            left=Side(style='thin'), right=Side(style='thin'),
-            top=Side(style='thin'), bottom=Side(style='thin')
-        )
         
-        ws.append(headers)
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=2, column=col)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal='center')
-            cell.border = thin_border
-        
-        # 数据行
-        for r in records:
-            ws.append([
+        data_rows = [
+            [
                 r.id, r.template_code, r.template_name, r.scenario_type, r.matter_type,
                 r.template_content, r.priority, '是' if r.is_active else '否'
-            ])
-            for col in range(1, len(headers) + 1):
-                ws.cell(row=ws.max_row, column=col).border = thin_border
+            ] for r in records
+        ]
         
-        # 调整列宽
-        for col_idx in range(1, len(headers) + 1):
-            max_length = 0
-            for row_idx in range(1, ws.max_row + 1):
-                cell = ws.cell(row=row_idx, column=col_idx)
-                if cell.value:
-                    try:
-                        max_length = max(max_length, len(str(cell.value)))
-                    except:
-                        pass
-            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_length + 2, 50)
+        col_widths = [8, 12, 18, 30, 15, 50, 10, 10]
+        
+        apply_excel_style(ws, '答复模板导出', headers, data_rows, col_widths, '答复模板')
         
         output = io.BytesIO()
         wb.save(output)

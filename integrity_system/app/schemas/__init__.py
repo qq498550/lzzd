@@ -15,7 +15,7 @@ class DisciplineRecordBase(BaseModel):
     has_influence_period: bool = Field(True, description="有无影响期")
     influence_end_date: Optional[date] = Field(None, description="影响期截止日期")
     reason: str = Field(..., description="事由")
-    status: str = Field("completed", description="状态：completed/processing")
+    remark: Optional[str] = Field("", description="备注")
 
 
 class DisciplineRecordCreate(DisciplineRecordBase):
@@ -33,7 +33,7 @@ class DisciplineRecordUpdate(BaseModel):
     has_influence_period: Optional[bool] = None
     influence_end_date: Optional[date] = None
     reason: Optional[str] = None
-    status: Optional[str] = None
+    remark: Optional[str] = None
 
 
 class DisciplineRecordResponse(DisciplineRecordBase):
@@ -57,7 +57,7 @@ class ViolationRecordBase(BaseModel):
     has_influence_period: bool = Field(True, description="有无影响期")
     influence_end_date: Optional[date] = Field(None, description="影响期截止日期")
     reason: str = Field(..., description="事由")
-    status: str = Field("completed", description="状态：completed/processing")
+    remark: Optional[str] = Field("", description="备注")
 
 
 class ViolationRecordCreate(ViolationRecordBase):
@@ -75,7 +75,7 @@ class ViolationRecordUpdate(BaseModel):
     has_influence_period: Optional[bool] = None
     influence_end_date: Optional[date] = None
     reason: Optional[str] = None
-    status: Optional[str] = None
+    remark: Optional[str] = None
 
 
 class ViolationRecordResponse(ViolationRecordBase):
@@ -98,7 +98,7 @@ class PetitionReportBase(BaseModel):
     organization_adoption: Optional[bool] = Field(None, description="组织是否采信")
     has_influence_period: bool = Field(False, description="有无影响期")
     influence_end_date: Optional[date] = Field(None, description="影响期截止日期")
-    status: str = Field("processing", description="状态：processing/completed/influence_period_ended")
+    remark: Optional[str] = Field("", description="备注")
 
 
 class PetitionReportCreate(PetitionReportBase):
@@ -115,7 +115,7 @@ class PetitionReportUpdate(BaseModel):
     organization_adoption: Optional[bool] = None
     has_influence_period: Optional[bool] = None
     influence_end_date: Optional[date] = None
-    status: Optional[str] = None
+    remark: Optional[str] = None
 
 
 class PetitionReportResponse(PetitionReportBase):
