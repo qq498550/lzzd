@@ -279,7 +279,6 @@
                 <h1>操作日志</h1>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn btn-primary" onclick="loadOperationLogs()">🔄 刷新</button>
-                    <button class="btn btn-danger" onclick="clearOperationLogs()">🗑️ 清空日志</button>
                 </div>
             </div>
             <div class="card">
@@ -919,9 +918,24 @@
             }
         });
 
-        // 初始化加载 - 检查登录状态
+        // 初始化加载 - 检查登录状态（30分钟超时）
         async function checkLoginStatus() {
             const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+            const loginTime = localStorage.getItem('loginTime');
+            const now = Date.now();
+            const EXPIRE_TIME = 30 * 60 * 1000; // 30分钟
+
+            // 检查是否超时
+            if (isLoggedIn && loginTime && (now - parseInt(loginTime)) > EXPIRE_TIME) {
+                // 登录已过期，清除状态
+                localStorage.removeItem('isLoggedIn');
+                localStorage.removeItem('loginTime');
+                alert('登录已过期，请重新登录');
+                document.getElementById('sidebarNav').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'none';
+                document.getElementById('loginPage').style.display = 'block';
+                return;
+            }
 
             if (isLoggedIn) {
                 // 已登录，显示主内容区
@@ -955,6 +969,7 @@
                 
                 if (response.ok) {
                     localStorage.setItem('isLoggedIn', 'true');
+                    localStorage.setItem('loginTime', Date.now()); // 记录登录时间
                     document.getElementById('loginError').style.display = 'none';
                     checkLoginStatus();
                 } else {
@@ -1006,6 +1021,7 @@
         function logout() {
             if (!confirm('确定要退出登录吗？')) return;
             localStorage.removeItem('isLoggedIn');
+            localStorage.removeItem('loginTime');
             location.reload();
         }
 
@@ -1044,22 +1060,6 @@
                 '删除': '<span class="status-badge" style="background: #f8d7da; color: #721c24;">删除</span>'
             };
             return badges[action] || `<span class="status-badge">${action}</span>`;
-        }
-
-        // 清空操作日志
-        async function clearOperationLogs() {
-            if (!confirm('确定要清空所有操作日志吗？此操作不可恢复！')) return;
-            try {
-                const response = await fetch(`${API_BASE}/operation/logs`, { method: 'DELETE' });
-                if (response.ok) {
-                    alert('操作日志已清空');
-                    loadOperationLogs();
-                } else {
-                    alert('清空失败');
-                }
-            } catch (error) {
-                alert('清空出错：' + error.message);
-            }
         }
 
         // 数据库备份与恢复功能

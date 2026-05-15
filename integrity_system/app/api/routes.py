@@ -167,7 +167,7 @@ def verify_user_credentials(username: str, password: str) -> dict:
 
 
 def log_operation(db: Session, module: str, action: str, record_id: int, record_name: str, description: str, operator: str = "系统管理员"):
-    """记录操作日志"""
+    """记录操作日志（只保留最近40条）"""
     from app.models.database import OperationLog
     try:
         log = OperationLog(
@@ -180,6 +180,13 @@ def log_operation(db: Session, module: str, action: str, record_id: int, record_
         )
         db.add(log)
         db.commit()
+        # 只保留最近40条
+        total_count = db.query(OperationLog).count()
+        if total_count > 40:
+            old_logs = db.query(OperationLog).order_by(OperationLog.created_at.asc()).limit(total_count - 40).all()
+            for old_log in old_logs:
+                db.delete(old_log)
+            db.commit()
     except Exception as e:
         print(f"[操作日志] 记录失败: {e}")
         db.rollback()
@@ -566,15 +573,6 @@ def get_operation_logs(limit: int = 100, db: Session = Depends(get_db)):
         OperationLog.created_at.desc()
     ).limit(limit).all()
     return logs
-
-
-@router.delete("/operation/logs", tags=["操作日志"])
-def clear_operation_logs(db: Session = Depends(get_db)):
-    """清空操作日志"""
-    from app.models.database import OperationLog
-    db.query(OperationLog).delete()
-    db.commit()
-    return {"message": "操作日志已清空"}
 
 
 # ==================== 管理员登录验证 ====================

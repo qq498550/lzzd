@@ -300,9 +300,9 @@ class IntegrityService:
         
         return answer
     
-    def log_query(self, query_name: str, matter_type: str, 
+    def log_query(self, query_name: str, matter_type: str,
                   template_code: str, conclusion: str, operator: str = "system"):
-        """记录查询日志"""
+        """记录查询日志（只保留最近40条）"""
         try:
             print(f"[DEBUG] 开始记录日志: query_name={query_name}, matter_type={matter_type}, template_code={template_code}")
             log = QueryLog(
@@ -315,6 +315,13 @@ class IntegrityService:
             self.db.add(log)
             self.db.commit()
             print(f"[DEBUG] 日志记录成功!")
+            # 只保留最近20条
+            total_count = self.db.query(QueryLog).count()
+            if total_count > 20:
+                old_logs = self.db.query(QueryLog).order_by(QueryLog.query_time.asc()).limit(total_count - 40).all()
+                for old_log in old_logs:
+                    self.db.delete(old_log)
+                self.db.commit()
         except Exception as e:
             self.db.rollback()
             print(f"[ERROR] 记录查询日志失败: {e}")
