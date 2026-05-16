@@ -37,15 +37,13 @@ integrity_system/
 │   ├── main.py                    # 应用入口
 │   ├── api/
 │   │   ├── __init__.py
-│   │   └── routes.py              # API路由（50+接口）
+│   │   └── routes.py              # API路由
 │   ├── core/
 │   │   ├── __init__.py
-│   │   └── config.py              # 配置管理
+│   │   └── config.py              # 配置管理（含密码哈希）
 │   ├── models/
 │   │   ├── __init__.py
 │   │   └── database.py            # 数据库模型
-│   ├── schemas/
-│   │   └── __init__.py            # Pydantic模型
 │   ├── services/
 │   │   ├── __init__.py
 │   │   └── integrity_service.py   # 核心业务逻辑
@@ -54,9 +52,15 @@ integrity_system/
 │   └── templates/
 │       ├── index.html             # 查询首页
 │       └── admin.html             # 管理后台
-├── data/
+├── data/                          # 数据目录（自动创建）
 │   └── integrity.db               # SQLite数据库
-└── requirements.txt               # 依赖列表
+├── dist/                          # 打包输出目录
+├── run.py                         # 开发环境启动脚本
+├── reset_password.py              # 密码重置脚本
+├── 重置密码.bat                    # Windows密码重置批处理
+├── 打包.bat                        # Windows打包脚本
+├── app_main.spec                  # PyInstaller配置
+└── requirements.txt              # 依赖列表
 ```
 
 ## 快速开始
@@ -68,10 +72,11 @@ cd integrity_system
 pip install -r requirements.txt
 ```
 
-### 2. 启动服务
+### 2. 启动服务（开发环境）
 
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+cd integrity_system
+python run.py
 ```
 
 ### 3. 访问系统
@@ -91,9 +96,6 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 - **姓名查询**：输入被查询人姓名
 - **事项类型选择**：
   - 干部选拔任用
-  - 表彰奖励
-  - 职级晋升
-  - 交流任职
   - 其他
 - **查询结果展示**：
   - 显示匹配的记录详情（类型、问责情况、问责时间、影响期状态）
@@ -191,6 +193,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 | `answer_templates` | 答复模板 | id, template_code(T1-T8/G1-G8), template_name, scenario_type, template_type, matter_type, template_content, priority, is_active |
 | `query_logs` | 查询日志 | id, query_name, matter_type, result_template, conclusion, query_time, operator |
 | `operation_logs` | 操作日志 | id, module, action, record_id, record_name, description, operator, created_at |
+| `system_config` | 系统配置 | id, config_key, config_value, updated_at（存储密码哈希等） |
 
 ## API 接口
 
@@ -261,6 +264,7 @@ POST /api/query/
 4. **影响期判断**：基于当前日期自动计算，多条记录时任一在影响期内优先匹配T8/G8
 5. **事项类型**：查询时选择不同事项类型，会匹配对应的模板系列
 6. **数据库备份**：恢复前会自动备份当前数据库到同目录
+7. **密码安全**：密码使用 SHA256 哈希存储在数据库中
 
 ## 测试案例
 
@@ -286,17 +290,3 @@ POST /api/query/
 ### 案例5：其他查询类型
 - 查询姓名：xxx，事项类型=表彰奖励
 - 系统会自动匹配G系列模板
-
-## 配置说明
-
-系统支持通过环境变量或 `.env` 文件配置：
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| APP_NAME | 廉政意见智答系统 | 应用名称 |
-| DEBUG | true | 调试模式 |
-| HOST | 0.0.0.0 | 服务监听地址 |
-| PORT | 8000 | 服务监听端口 |
-| DATABASE_URL | sqlite:///./data/integrity.db | 数据库连接 |
-| ADMIN_USERNAME | admin | 管理员账号 |
-| ADMIN_PASSWORD | admin123 | 管理员密码 |
