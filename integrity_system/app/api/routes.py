@@ -135,34 +135,40 @@ from app.schemas import (
     QueryRequest, QueryResponse, OperationLogCreate, OperationLogResponse
 )
 from app.services.integrity_service import IntegrityService
-from app.core.config import settings
+from app.core.config import settings, verify_password, hash_password, get_admin_password_hash
 
 router = APIRouter()
 
-# 用户数据库（内存存储）
+# 用户数据库（内存存储，密码使用哈希存储）
+# 注意：admin 的密码哈希从数据库动态读取
 users_db = {
     "admin": {
         "username": "admin",
-        "password": settings.admin_password,
         "name": "系统管理员",
         "role": "admin"
     }
 }
 
 
+def get_admin_password_hash() -> str:
+    """获取管理员密码哈希（从数据库读取）"""
+    return get_admin_password_hash()
+
+
 def verify_admin_credentials(username: str, password: str) -> bool:
     """验证管理员账号"""
-    if username in users_db and users_db[username]["role"] == "admin":
-        return users_db[username]["password"] == password
-    return username == settings.admin_username and password == settings.admin_password
+    if username == "admin":
+        stored_hash = get_admin_password_hash()
+        return verify_password(password, stored_hash)
+    return False
 
 
 def verify_user_credentials(username: str, password: str) -> dict:
     """验证用户账号"""
-    if username in users_db and users_db[username]["password"] == password:
-        return {"username": username, "role": users_db[username]["role"], "name": users_db[username]["name"]}
-    if username == settings.admin_username and password == settings.admin_password:
-        return {"username": username, "role": "admin", "name": "系统管理员"}
+    if username == "admin":
+        stored_hash = get_admin_password_hash()
+        if verify_password(password, stored_hash):
+            return {"username": username, "role": "admin", "name": "系统管理员"}
     return None
 
 
@@ -1239,7 +1245,7 @@ def create_user(username: str = Form(...), password: str = Form(...),
         raise HTTPException(status_code=400, detail="用户名已存在")
     
     users_db[username] = {
-        "password": password,
+        "password_hash": hash_password(password),
         "name": name,
         "role": role
     }
@@ -1264,7 +1270,7 @@ def reset_password(username: str, new_password: str = Form(...)):
     if username not in users_db:
         raise HTTPException(status_code=404, detail="用户不存在")
     
-    users_db[username]["password"] = new_password
+    users_db[username]["password_hash"] = hash_password(new_password)
     return {"success": True, "message": f"用户 {username} 密码已重置"}
 
 
@@ -1274,12 +1280,10 @@ def change_password(old_password: str = Form(...), new_password: str = Form(...)
     if not verify_admin_credentials("admin", old_password):
         raise HTTPException(status_code=401, detail="原密码错误")
 
-    # 保存到 .env 文件
-    from app.core.config import save_env_config
-    save_env_config("ADMIN_PASSWORD", new_password)
-
-    # 同时更新内存中的密码（下次重启后从 .env 读取）
-    users_db["admin"]["password"] = new_password
+    # 哈希新密码并保存到数据库
+    from app.core.config import save_admin_password_hash_to_db
+    new_hash = hash_password(new_password)
+    save_admin_password_hash_to_db(new_hash)
 
     return {"success": True, "message": "密码修改成功"}
 

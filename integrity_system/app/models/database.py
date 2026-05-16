@@ -120,6 +120,16 @@ class OperationLog(Base):
     created_at = Column(DateTime, default=datetime.now)
 
 
+class SystemConfig(Base):
+    """系统配置表（存储密码哈希等敏感信息）"""
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    config_key = Column(String(100), unique=True, index=True, nullable=False)
+    config_value = Column(Text)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
 def init_db():
     """初始化数据库表"""
     # 首先创建所有表

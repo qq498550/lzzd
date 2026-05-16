@@ -1,13 +1,15 @@
 """
 核心配置模块
 
-使用 Pydantic 进行配置管理，支持环境变量覆盖
+使用 Pydantic 进行配置管理，密码哈希存储在数据库中
 """
 import os
 import sys
+import hashlib
+import uuid
+import base64
 from functools import lru_cache
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 
 def get_base_dir():
@@ -30,37 +32,91 @@ def get_database_url():
     return f"sqlite:///{db_path}"
 
 
-def get_env_file_path():
-    """获取 .env 文件路径"""
-    return os.path.join(BASE_DIR, ".env")
+def get_machine_id() -> str:
+    """获取机器唯一标识"""
+    # 使用机器名 + 用户名 + 随机UUID 生成
+    machine_info = f"{os.environ.get('COMPUTERNAME', 'default')}-{os.environ.get('USERNAME', 'user')}-{uuid.getnode()}"
+    return hashlib.sha256(machine_info.encode()).hexdigest()[:32]
 
 
-def save_env_config(key: str, value: str):
-    """保存配置到 .env 文件"""
-    env_file = get_env_file_path()
+def get_encryption_key() -> bytes:
+    """获取加密密钥（基于机器ID）"""
+    machine_id = get_machine_id()
+    # 使用 PBKDF2 派生加密密钥
+    key = hashlib.pbkdf2_hmac('sha256', machine_id.encode(), b'integrity_system_salt', 100000)
+    return key
 
-    config_lines = []
-    if os.path.exists(env_file):
-        with open(env_file, "r", encoding="utf-8") as f:
-            config_lines = f.readlines()
 
-    found = False
-    new_lines = []
-    for line in config_lines:
-        if line.strip().startswith(f"{key}="):
-            new_lines.append(f"{key}={value}\n")
-            found = True
+def hash_password(password: str) -> str:
+    """密码哈希（带盐）"""
+    salt = uuid.uuid4().hex
+    hash_val = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+    return f"{salt}${base64.b64encode(hash_val).decode()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """验证密码"""
+    try:
+        if '$' not in stored_hash:
+            # 兼容旧格式（简单SHA256）
+            return hashlib.sha256(password.encode()).hexdigest() == stored_hash
+        salt, encoded_hash = stored_hash.split('$')
+        hash_val = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
+        return base64.b64decode(encoded_hash) == hash_val
+    except:
+        return False
+
+
+def get_default_admin_hash() -> str:
+    """默认管理员密码哈希（admin123）"""
+    return "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
+
+
+def get_admin_password_hash_from_db() -> str:
+    """从数据库获取管理员密码哈希"""
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        
+        engine = create_engine(get_database_url(), connect_args={"check_same_thread": False})
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+        
+        try:
+            from app.models.database import SystemConfig
+            config = db.query(SystemConfig).filter(SystemConfig.config_key == "admin_password_hash").first()
+            if config and config.config_value:
+                return config.config_value
+        finally:
+            db.close()
+    except:
+        pass
+    return get_default_admin_hash()
+
+
+def save_admin_password_hash_to_db(password_hash: str):
+    """保存管理员密码哈希到数据库"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.models.database import SystemConfig, Base
+    
+    engine = create_engine(get_database_url(), connect_args={"check_same_thread": False})
+    SessionLocal = sessionmaker(bind=engine)
+    
+    # 确保表存在
+    Base.metadata.create_all(bind=engine)
+    
+    db = SessionLocal()
+    try:
+        config = db.query(SystemConfig).filter(SystemConfig.config_key == "admin_password_hash").first()
+        if config:
+            config.config_value = password_hash
         else:
-            new_lines.append(line)
-
-    if not found:
-        new_lines.append(f"{key}={value}\n")
-
-    with open(env_file, "w", encoding="utf-8") as f:
-        f.writelines(new_lines)
-
-    # 清除 settings 缓存
-    get_settings.cache_clear()
+            config = SystemConfig(config_key="admin_password_hash", config_value=password_hash)
+            db.add(config)
+        db.commit()
+    finally:
+        db.close()
 
 
 class Settings(BaseSettings):
@@ -84,11 +140,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     admin_username: str = "admin"
-    admin_password: str = "admin123"
 
     class Config:
-        env_file = get_env_file_path()
-        env_file_encoding = "utf-8"
         case_sensitive = False
 
 
@@ -99,3 +152,8 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def get_admin_password_hash() -> str:
+    """获取管理员密码哈希"""
+    return get_admin_password_hash_from_db()
