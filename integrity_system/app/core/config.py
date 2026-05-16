@@ -20,6 +20,9 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
+# 确保 data 目录存在
+os.makedirs(DATA_DIR, exist_ok=True)
+
 
 def get_database_url():
     """获取数据库URL"""
@@ -75,8 +78,8 @@ class Settings(BaseSettings):
 
     base_dir: str = BASE_DIR
     data_dir: str = DATA_DIR
-    static_dir: str = os.path.join(BASE_DIR, "app", "static")
-    templates_dir: str = os.path.join(BASE_DIR, "app", "templates")
+    static_dir: str = os.path.join(BASE_DIR, "static")
+    templates_dir: str = os.path.join(BASE_DIR, "templates")
 
     log_level: str = "INFO"
 
