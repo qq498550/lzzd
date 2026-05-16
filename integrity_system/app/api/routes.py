@@ -1271,11 +1271,16 @@ def reset_password(username: str, new_password: str = Form(...)):
 @router.post("/admin/change-password", tags=["管理员"])
 def change_password(old_password: str = Form(...), new_password: str = Form(...)):
     """修改管理员密码"""
-    # 这里简单处理，实际应该结合 session 或 token 验证当前登录用户
     if not verify_admin_credentials("admin", old_password):
         raise HTTPException(status_code=401, detail="原密码错误")
-    
+
+    # 保存到 .env 文件
+    from app.core.config import save_env_config
+    save_env_config("ADMIN_PASSWORD", new_password)
+
+    # 同时更新内存中的密码（下次重启后从 .env 读取）
     users_db["admin"]["password"] = new_password
+
     return {"success": True, "message": "密码修改成功"}
 
 
